@@ -37,11 +37,11 @@ function NavTabs() {
 
 export function Header({
   updatedAt,
-  todayPnl,
+  totalPnl,
   hasError = false,
 }: {
   updatedAt: string | null;
-  todayPnl: number | null;
+  totalPnl: number | null;
   hasError?: boolean;
 }) {
   return (
@@ -58,17 +58,17 @@ export function Header({
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2">
         <div>
-          <div className="text-xs text-text-faint">Today</div>
+          <div className="text-xs text-text-faint">Total P&L (tracked traders)</div>
           <div
             className="font-mono text-lg font-semibold tabular-nums"
-            style={todayPnl !== null ? { color: todayPnl >= 0 ? "var(--green)" : "var(--red)" } : { color: "var(--text-faint)" }}
+            style={totalPnl !== null ? { color: totalPnl >= 0 ? "var(--green)" : "var(--red)" } : { color: "var(--text-faint)" }}
           >
-            {todayPnl !== null ? formatUsd(todayPnl, { signed: true, compact: true }) : "—"}
+            {totalPnl !== null ? formatUsd(totalPnl, { signed: true, compact: true }) : "—"}
           </div>
         </div>
         <div className="h-8 w-px bg-border-soft" />
         <div className="text-xs text-text-faint">
-          {updatedAt ? `P&L updated ${timeAgo(updatedAt)}` : hasError ? "Unavailable" : "Loading…"}
+          {updatedAt ? `Updated ${timeAgo(updatedAt)}` : hasError ? "Unavailable" : "Loading…"}
         </div>
       </div>
     </header>

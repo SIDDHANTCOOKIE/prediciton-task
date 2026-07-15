@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Trader, FilterState, SortKey } from "@/lib/types";
-import { DEFAULT_FILTERS } from "@/lib/types";
+import { DEFAULT_FILTERS, traderKey } from "@/lib/types";
 import { applyFiltersAndSort } from "@/lib/filtering";
 import { Header } from "@/components/Header";
 import { FilterRail } from "@/components/FilterRail";
@@ -42,29 +42,28 @@ export default function Home() {
 
   const result = useMemo(() => (data ? applyFiltersAndSort(data.traders, filters) : []), [data, filters]);
 
-  const todayPnl = useMemo(() => {
+  // This upstream doesn't expose a daily equity series, so a "today" delta isn't
+  // computable — show the real combined all-time P&L across tracked traders instead
+  // of fabricating a daily figure.
+  const totalPnl = useMemo(() => {
     if (!data) return null;
-    return data.traders.reduce((sum, t) => {
-      const curve = t.equity_curve;
-      if (curve.length < 2) return sum;
-      return sum + (curve[curve.length - 1] - curve[curve.length - 2]);
-    }, 0);
+    return data.traders.reduce((sum, t) => sum + t.stats.pnl, 0);
   }, [data]);
 
   function handleSortChange(key: SortKey) {
     setFilters((f) => (f.sortKey === key ? { ...f, sortDir: f.sortDir === "desc" ? "asc" : "desc" } : { ...f, sortKey: key, sortDir: "desc" }));
   }
 
-  function toggleSelect(name: string) {
+  function toggleSelect(key: string) {
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(name)) next.delete(name);
-      else if (next.size < 3) next.add(name);
+      if (next.has(key)) next.delete(key);
+      else if (next.size < 3) next.add(key);
       return next;
     });
   }
 
-  const selectedTraders = useMemo(() => result.filter((t) => selected.has(t.name)), [result, selected]);
+  const selectedTraders = useMemo(() => result.filter((t) => selected.has(traderKey(t))), [result, selected]);
 
   const categories = useMemo(() => {
     if (!data) return [];
@@ -75,7 +74,7 @@ export default function Home() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col">
-      <Header updatedAt={data?.updatedAt ?? null} todayPnl={todayPnl} hasError={!!error} />
+      <Header updatedAt={data?.updatedAt ?? null} totalPnl={totalPnl} hasError={!!error} />
 
       {error && (
         <div
@@ -109,7 +108,7 @@ export default function Home() {
       </main>
 
       <footer className="mt-auto border-t border-border-soft px-4 py-6 text-center text-xs text-text-faint sm:px-6">
-        Live data from Polymarket&apos;s public leaderboard/trade APIs (Kalshi best-effort). Efficiency-first rebuild of the predicting.top concept.
+        Live trader data via predicting.top&apos;s public leaderboard API — re-ranked and re-filtered here for efficiency-first sorting.
       </footer>
 
       <CompareBar

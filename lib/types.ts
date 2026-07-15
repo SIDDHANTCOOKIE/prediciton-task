@@ -23,10 +23,13 @@ export type Trader = {
   affiliated: boolean;
   stats: {
     pnl: number;
-    vol: number; // real trading volume — used as the capital-efficiency denominator (deposits aren't publicly available)
     buys: number;
     sells: number;
   };
+  /** Real deposited capital, when the upstream can resolve it (e.g. via on-chain wallet transfers).
+   *  0 when unavailable (e.g. Kalshi traders with no linked wallet) — used as the capital-efficiency
+   *  denominator; traders with 0 are excluded from that sort rather than shown a fake ratio. */
+  deposits: number;
   smart_score: SmartScore;
   /** Cumulative-equity points for the row sparkline, derived from real trade history. */
   equity_curve: number[];
@@ -35,6 +38,14 @@ export type Trader = {
   /** Dominant Polymarket market category by traded volume, when resolvable. */
   dominantCategory?: string;
 };
+
+/** Stable unique identity for a trader row. Display names alone aren't guaranteed unique
+ *  (the live upstream has produced duplicate display names) — `rank` is assigned uniquely
+ *  per fetch, so name+rank is collision-proof without depending on wallet (which can be
+ *  null for Kalshi accounts). Used for React keys and the compare/expand selection sets. */
+export function traderKey(t: Trader): string {
+  return `${t.name}__${t.rank}`;
+}
 
 export type SortKey =
   | "score"

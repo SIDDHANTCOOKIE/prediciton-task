@@ -24,12 +24,12 @@ export const SORT_OPTIONS: SortOption[] = [
   },
   {
     key: "returnOnCapital",
-    label: "Efficiency (P&L ÷ Vol)",
+    label: "Efficiency (P&L ÷ Deposits)",
     shortLabel: "Efficiency",
-    description: "Formula: P&L ÷ Volume — profit per dollar traded. A simple, transparent alternative to the composite Score.",
-    accessor: (t) => (t.stats.vol > 0 ? t.stats.pnl / t.stats.vol : 0),
+    description: "Formula: P&L ÷ Deposited capital — profit per dollar actually put in. A simple, transparent alternative to the composite Score.",
+    accessor: (t) => (t.deposits > 0 ? t.stats.pnl / t.deposits : 0),
     isRatio: true,
-    format: (t) => `${((t.stats.vol > 0 ? t.stats.pnl / t.stats.vol : 0) * 100).toFixed(0)}%`,
+    format: (t) => `${((t.deposits > 0 ? t.stats.pnl / t.deposits : 0) * 100).toFixed(0)}%`,
   },
   {
     key: "sortino",
@@ -103,4 +103,11 @@ export function getSortOption(key: SortKey): SortOption {
 /** A trader is eligible for a ratio-based sort only with enough sample size to trust the ratio. */
 export function isEligibleForRatioSort(t: Trader): boolean {
   return t.smart_score.dataPoints >= MIN_DATA_POINTS_FOR_RATIO_SORT;
+}
+
+/** Traders with no resolvable deposits (e.g. Kalshi accounts with no linked wallet) have no
+ *  real denominator for Efficiency (P&L ÷ Deposits) — always excluded from that specific sort,
+ *  independent of the general thin-sample toggle, rather than shown a fake tied 0%. */
+export function hasUsableDeposits(t: Trader): boolean {
+  return t.deposits > 0;
 }

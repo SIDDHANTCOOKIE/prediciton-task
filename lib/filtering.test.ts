@@ -54,7 +54,8 @@ function makeTrader(overrides: Partial<Trader> & { name: string }): Trader {
     views: 0,
     largest_win: "0",
     affiliated: false,
-    stats: { pnl: 1000, vol: 5000, buys: 10, sells: 10 },
+    stats: { pnl: 1000, buys: 10, sells: 10 },
+    deposits: 5000,
     equity_curve: [0, 100, 1000],
     ...overrides,
     smart_score: smartScore,
@@ -87,6 +88,17 @@ describe("applyFilters", () => {
     const result = applyFilters([pm, kalshi], { ...DEFAULT_FILTERS, venue: "polymarket" });
     expect(result.map((t) => t.name)).toEqual(["pm-trader"]);
   });
+
+  it("excludes traders with no resolvable deposits from the Efficiency sort, but not from other sorts", () => {
+    const noDeposits = makeTrader({ name: "kalshi-no-wallet", deposits: 0 });
+    const hasDeposits = makeTrader({ name: "polymarket-wallet", deposits: 5000 });
+
+    const onEfficiency = applyFilters([noDeposits, hasDeposits], { ...DEFAULT_FILTERS, sortKey: "returnOnCapital" });
+    expect(onEfficiency.map((t) => t.name)).toEqual(["polymarket-wallet"]);
+
+    const onScore = applyFilters([noDeposits, hasDeposits], { ...DEFAULT_FILTERS, sortKey: "score" });
+    expect(onScore.map((t) => t.name).sort()).toEqual(["kalshi-no-wallet", "polymarket-wallet"]);
+  });
 });
 
 describe("applySort", () => {
@@ -99,8 +111,8 @@ describe("applySort", () => {
   });
 
   it("sorts by raw pnl when sortKey is pnl, independent of score", () => {
-    const highScoreLowPnl = makeTrader({ name: "efficient", stats: { pnl: 100, vol: 500, buys: 1, sells: 1 }, smart_score: { score: 90 } as SmartScore });
-    const lowScoreHighPnl = makeTrader({ name: "whale", stats: { pnl: 100000, vol: 500000, buys: 1, sells: 1 }, smart_score: { score: 20 } as SmartScore });
+    const highScoreLowPnl = makeTrader({ name: "efficient", stats: { pnl: 100, buys: 1, sells: 1 }, deposits: 500, smart_score: { score: 90 } as SmartScore });
+    const lowScoreHighPnl = makeTrader({ name: "whale", stats: { pnl: 100000, buys: 1, sells: 1 }, deposits: 500000, smart_score: { score: 20 } as SmartScore });
     const result = applySort([highScoreLowPnl, lowScoreHighPnl], { ...DEFAULT_FILTERS, sortKey: "pnl", sortDir: "desc" });
     expect(result.map((t) => t.name)).toEqual(["whale", "efficient"]);
   });
@@ -108,8 +120,8 @@ describe("applySort", () => {
 
 describe("applyFiltersAndSort — the product thesis", () => {
   it("inverts the P&L ordering when sorted by efficiency: a smaller-P&L high-score trader outranks a bigger-P&L low-score whale", () => {
-    const whale = makeTrader({ name: "whale", stats: { pnl: 154510, vol: 900000, buys: 1, sells: 1 }, smart_score: { score: 66.9, dataPoints: 855 } as SmartScore });
-    const sharp = makeTrader({ name: "sharp", stats: { pnl: 44751, vol: 200000, buys: 1, sells: 1 }, smart_score: { score: 81.6, dataPoints: 220 } as SmartScore });
+    const whale = makeTrader({ name: "whale", stats: { pnl: 154510, buys: 1, sells: 1 }, deposits: 900000, smart_score: { score: 66.9, dataPoints: 855 } as SmartScore });
+    const sharp = makeTrader({ name: "sharp", stats: { pnl: 44751, buys: 1, sells: 1 }, deposits: 200000, smart_score: { score: 81.6, dataPoints: 220 } as SmartScore });
 
     const byPnl = applyFiltersAndSort([whale, sharp], { ...DEFAULT_FILTERS, sortKey: "pnl" });
     expect(byPnl[0].name).toBe("whale");

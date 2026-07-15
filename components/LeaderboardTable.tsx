@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 import clsx from "clsx";
-import type { Trader, FilterState, SortKey } from "@/lib/types";
+import { traderKey, type Trader, type FilterState, type SortKey } from "@/lib/types";
 import { getSortOption, isEligibleForRatioSort } from "@/lib/sorting";
 import { ScoreBadge, TierChip } from "@/components/ScoreBadge";
 import { VenueBadges } from "@/components/VenueBadge";
@@ -68,7 +68,7 @@ export function LeaderboardTable({
   filters: FilterState;
   onSortChange: (key: SortKey) => void;
   selected: Set<string>;
-  onToggleSelect: (name: string) => void;
+  onToggleSelect: (key: string) => void;
 }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -106,21 +106,23 @@ export function LeaderboardTable({
         </thead>
         <tbody>
           {traders.map((t, idx) => {
-            const isOpen = expanded === t.name;
-            const roc = t.stats.vol > 0 ? t.stats.pnl / t.stats.vol : 0;
+            const key = traderKey(t);
+            const isOpen = expanded === key;
+            const hasDeposits = t.deposits > 0;
+            const roc = hasDeposits ? t.stats.pnl / t.deposits : 0;
             const thin = !isEligibleForRatioSort(t);
             const activeSort = getSortOption(filters.sortKey);
             return (
-              <Fragment key={t.name}>
+              <Fragment key={key}>
                 <tr
-                  onClick={() => setExpanded(isOpen ? null : t.name)}
+                  onClick={() => setExpanded(isOpen ? null : key)}
                   className="cursor-pointer border-b border-border-soft transition-colors hover:bg-row-hover"
                 >
                   <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
-                      checked={selected.has(t.name)}
-                      onChange={() => onToggleSelect(t.name)}
+                      checked={selected.has(key)}
+                      onChange={() => onToggleSelect(key)}
                       className="h-3.5 w-3.5 accent-[var(--accent)]"
                       aria-label={`Select ${t.name} to compare`}
                     />
@@ -186,9 +188,12 @@ export function LeaderboardTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2.5 font-mono tabular-nums" style={{ color: roc >= 0 ? "var(--green)" : "var(--red)" }}>
-                    {roc >= 0 ? "+" : ""}
-                    {(roc * 100).toFixed(0)}%
+                  <td
+                    className="px-3 py-2.5 font-mono tabular-nums"
+                    style={hasDeposits ? { color: roc >= 0 ? "var(--green)" : "var(--red)" } : { color: "var(--text-faint)" }}
+                    title={hasDeposits ? undefined : "No resolvable deposit data for this trader"}
+                  >
+                    {hasDeposits ? `${roc >= 0 ? "+" : ""}${(roc * 100).toFixed(0)}%` : "—"}
                   </td>
                   <td className="px-3 py-2.5 font-mono tabular-nums" style={{ color: t.stats.pnl >= 0 ? "var(--green)" : "var(--red)" }}>
                     {formatUsd(t.stats.pnl, { signed: true, compact: true })}

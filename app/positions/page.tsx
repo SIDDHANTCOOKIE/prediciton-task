@@ -70,7 +70,7 @@ export default function PositionsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col">
-      <Header updatedAt={data?.updatedAt ?? null} todayPnl={null} hasError={!!error} />
+      <Header updatedAt={data?.updatedAt ?? null} totalPnl={null} hasError={!!error} />
 
       {error && (
         <div
@@ -158,7 +158,8 @@ export default function PositionsPage() {
       </main>
 
       <footer className="mt-auto border-t border-border-soft px-4 py-6 text-center text-xs text-text-faint sm:px-6">
-        Live open positions for the top tracked wallets, from Polymarket&apos;s public positions API.
+        Live open positions for Polymarket&apos;s top 40 wallets by P&amp;L, fetched directly from Polymarket&apos;s public API — a different
+        wallet set/ranking than the main leaderboard (sourced from predicting.top), so tier badges may be sparse here.
       </footer>
     </div>
   );

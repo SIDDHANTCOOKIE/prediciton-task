@@ -1,5 +1,5 @@
 import type { Trader, FilterState } from "./types";
-import { getSortOption, isEligibleForRatioSort } from "./sorting";
+import { getSortOption, isEligibleForRatioSort, hasUsableDeposits } from "./sorting";
 
 const RECENT_WINDOW_DAYS = 7;
 
@@ -21,6 +21,7 @@ export function applyFilters(traders: Trader[], f: FilterState): Trader[] {
     if (t.smart_score.winRate < f.minWinRate) return false;
     if (t.smart_score.maxDrawdownPercent > f.maxDrawdownPercent) return false;
     if (f.hideThinSamples && !isEligibleForRatioSort(t)) return false;
+    if (f.sortKey === "returnOnCapital" && !hasUsableDeposits(t)) return false;
     if (f.xLinkedOnly && !t.twitter) return false;
     if (f.affiliatedOnly && !t.affiliated) return false;
     if (f.multiWalletOnly && t.wallet_count <= 1) return false;
