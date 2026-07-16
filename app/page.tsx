@@ -43,11 +43,24 @@ export default function Home() {
   const result = useMemo(() => (data ? applyFiltersAndSort(data.traders, filters) : []), [data, filters]);
 
   // This upstream doesn't expose a daily equity series, so a "today" delta isn't
-  // computable — show the real combined all-time P&L across tracked traders instead
-  // of fabricating a daily figure.
+  // computable — show the real combined all-time P&L instead of a fabricated daily
+  // figure. Sums the currently FILTERED set, so it responds to the venue filter etc.
   const totalPnl = useMemo(() => {
     if (!data) return null;
-    return data.traders.reduce((sum, t) => sum + t.stats.pnl, 0);
+    return result.reduce((sum, t) => sum + t.stats.pnl, 0);
+  }, [data, result]);
+
+  // Always-visible per-platform split (unaffected by filters) so the "whole" picture
+  // and the platform breakdown are both on screen at once. "both" (multi-venue accounts)
+  // gets its own bucket rather than being split — the upstream gives one combined pnl
+  // per account, not a per-platform breakdown, so splitting it would be fabricated.
+  const pnlByVenue = useMemo(() => {
+    if (!data) return null;
+    const byVenue = new Map<string, number>();
+    for (const t of data.traders) {
+      byVenue.set(t.platform, (byVenue.get(t.platform) ?? 0) + t.stats.pnl);
+    }
+    return byVenue;
   }, [data]);
 
   function handleSortChange(key: SortKey) {
@@ -74,7 +87,14 @@ export default function Home() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col">
-      <Header updatedAt={data?.updatedAt ?? null} totalPnl={totalPnl} hasError={!!error} />
+      <Header
+        updatedAt={data?.updatedAt ?? null}
+        totalPnl={totalPnl}
+        pnlByVenue={pnlByVenue}
+        activeVenue={filters.venue}
+        onVenueSelect={(v) => setFilters((f) => ({ ...f, venue: v }))}
+        hasError={!!error}
+      />
 
       {error && (
         <div
