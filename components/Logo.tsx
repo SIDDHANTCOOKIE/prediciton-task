@@ -1,20 +1,37 @@
-/** Original mark — an upward-trending "signal" inside a rounded square, evoking a market that
- *  resolves correctly. Colors are theme-aware (var(--accent)) so it works in light and dark. Not
- *  a reproduction of any third-party logo; swap the palette in app/globals.css's --accent once
- *  final brand colors are confirmed. */
 export function LogoMark({ size = 28 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 32 32" role="img" aria-label="Elcara Predictor logo">
-      <rect x={1} y={1} width={30} height={30} rx={9} fill="var(--accent)" />
+    <svg width={size} height={size} viewBox="0 0 100 100" role="img" aria-label="Elcara Predictor logo">
+      <defs>
+        <linearGradient id="grad-top" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="var(--accent)" />
+          <stop offset="100%" stopColor="#3B82F6" />
+        </linearGradient>
+        <linearGradient id="grad-left" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#3B82F6" />
+          <stop offset="100%" stopColor="#1D4ED8" />
+        </linearGradient>
+        <linearGradient id="grad-right" x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor="#93C5FD" />
+          <stop offset="100%" stopColor="#60A5FA" />
+        </linearGradient>
+      </defs>
+      {/* Top Face */}
+      <polygon points="50,10 84.64,30 50,50 15.36,30" fill="url(#grad-top)" />
+      {/* Left Face */}
+      <polygon points="15.36,30 50,50 50,90 15.36,70" fill="url(#grad-left)" />
+      {/* Right Face */}
+      <polygon points="84.64,30 84.64,70 50,90 50,50" fill="url(#grad-right)" />
+      
+      {/* Trend Line */}
       <path
-        d="M8 21 L13 15 L17 18 L24 9"
+        d="M30,65 L45,50 L55,55 L75,30"
         fill="none"
-        stroke="var(--bg-card)"
-        strokeWidth={2.4}
+        stroke="#FFFFFF"
+        strokeWidth="5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <circle cx={24} cy={9} r={2.1} fill="var(--bg-card)" />
+      <circle cx="75" cy="30" r="4" fill="#FFFFFF" />
     </svg>
   );
 }

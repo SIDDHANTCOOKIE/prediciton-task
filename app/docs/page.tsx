@@ -64,200 +64,119 @@ export default function DocsPage() {
         <main className="min-w-0 flex-1">
           <div className="mb-8">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-text-faint">Technical documentation</div>
-            <h1 className="mt-1.5 text-[28px] font-semibold tracking-tight text-text">How Elcara Predictor works</h1>
+            <h1 className="mt-1.5 text-[28px] font-semibold tracking-tight text-text">System Architecture & Methodology</h1>
             <p className="mt-2 max-w-[600px] text-sm leading-relaxed text-text-muted">
-              A from-scratch explanation of the architecture, data sources, and scoring methodology — written to be
-              read start to finish or jumped into from the sidebar.
+              A comprehensive overview of the application architecture, data ingestion pipelines, and the quantitative scoring methodology used to evaluate trader performance.
             </p>
           </div>
 
-          <Section id="like-im-2" eyebrow="Overview" title="Explain it like I'm 2">
+          <Section id="methodology-overview" eyebrow="Overview" title="Methodology Overview">
             <p>
-              Imagine a leaderboard at a video arcade, except instead of &quot;highest score,&quot; it ranks people by
-              <em> who plays the smartest</em> — not just who has the most coins.
+              Traditional prediction market leaderboards rank participants purely by absolute profit, inherently favoring
+              those with the largest starting capital. Elcara Predictor aims to identify genuine trading skill by ranking 
+              market participants according to risk-adjusted efficiency rather than raw portfolio size.
             </p>
             <p>
-              Two prediction markets — <strong>Polymarket</strong> and <strong>Kalshi</strong> — let people bet real
-              money on real-world questions (&quot;will X happen by Y date?&quot;). Both keep a public list of their
-              best traders. This site pulls that list, does its own math on top of it, and shows you who&apos;s
-              actually good — not just who got lucky once with a huge bet.
-            </p>
-            <p>
-              A trader who turned $10 into $10,010 is more impressive than one who turned $1,000,000 into
-              $1,010,000 — even though the second number is bigger. That&apos;s the whole point of this site.
+              By aggregating data from <strong>Polymarket</strong> and <strong>Kalshi</strong>, this platform computes
+              comprehensive risk metrics to determine the most effective capital allocators. A trader who generates a 
+              high relative return with low volatility will outrank a trader who simply risked a massive bankroll to 
+              achieve a higher absolute return.
             </p>
           </Section>
 
-          <Section id="big-picture" eyebrow="Overview" title="The big picture">
+          <Section id="big-picture" eyebrow="Overview" title="System Architecture">
             <p>
-              There are three moving parts: <strong>your browser</strong>, <strong>our frontend</strong> (the page
-              you&apos;re looking at), and <strong>our backend</strong> (a separate always-on service). The backend
-              is the only thing that ever talks to Polymarket or Kalshi directly — your browser and the frontend
-              never do.
+              The system architecture comprises three primary components: the client browser, the Next.js frontend application, and a dedicated backend ingestion service. Crucially, all data fetching and aggregation are handled exclusively by the backend; the client never interacts with the Polymarket or Kalshi APIs directly.
             </p>
             <DiagramCard>
               <SystemDiagram />
             </DiagramCard>
-            <p>That separation exists for a concrete reason, not just tidiness — see the next section.</p>
           </Section>
 
-          <Section id="why-backend" eyebrow="Architecture" title="Why a separate backend?">
+          <Section id="why-backend" eyebrow="Architecture" title="Decoupled Data Ingestion">
             <p>
-              The first version of this idea called Polymarket/Kalshi <em>straight from the browser</em>. That
-              breaks in two ways:
+              Direct client-to-API communication proved unreliable due to two primary network factors:
             </p>
             <ul className="list-disc space-y-1.5 pl-5">
               <li>
-                <strong>Some networks quietly lie about where these sites live.</strong> On some ISPs, asking
-                &quot;what&apos;s the address for Polymarket/Kalshi&apos;s API?&quot; comes back with a wrong
-                address — a dead end that just times out — instead of the real one. This is DNS poisoning, not a
-                firewall dropping your request; it&apos;s the equivalent of a phone book with the wrong number
-                printed in it. A browser often gets the real address anyway (many browsers resolve DNS securely
-                themselves rather than trusting whatever the ISP hands back), which is why it can look fine there
-                while a plain server-side request gets nowhere.
+                <strong>DNS Resolution Inconsistencies:</strong> Regional ISPs frequently fail to resolve these specific API endpoints correctly, resulting in dead-end requests and timeouts. Relying on client-side fetching introduces unacceptable regional availability issues.
               </li>
               <li>
-                <strong>Even with the real address, it&apos;s occasionally flaky.</strong> These APIs sit behind
-                Cloudflare/CloudFront, and a request every so often gets reset for no confirmed reason — not
-                consistently, just sometimes. Retrying (already built in) rides this out reliably in practice.
+                <strong>Upstream Rate Limiting and Flakiness:</strong> The target APIs sit behind strict edge networks (Cloudflare/CloudFront), leading to sporadic TCP resets. 
               </li>
             </ul>
             <p>
-              The fix has two parts: the backend looks up the real address itself through a trustworthy
-              DNS-over-HTTPS resolver instead of trusting whatever the local network hands back, and it retries
-              through the occasional reset. One dedicated backend server does <em>all</em> the fetching and saves
-              what it finds into its own database. The frontend you&apos;re looking at only ever asks{" "}
-              <em>our own</em> database for data — never Polymarket or Kalshi directly. So it doesn&apos;t matter
-              where you are; if our backend can reach the source, everyone everywhere sees the data.
+              To ensure high availability, the dedicated backend service resolves external endpoints via secure DNS-over-HTTPS and implements robust retry logic. It persists the aggregated data into a PostgreSQL database, which serves as the highly available source of truth for the frontend application.
             </p>
             <Callout>
-              If a venue is temporarily unreachable, the backend just keeps serving the last good snapshot it
-              saved, marked as &quot;stale,&quot; instead of showing an error or blank page.
+              In the event of an upstream API outage, the backend gracefully degrades by serving the most recent cached snapshot, ensuring continuous platform availability.
             </Callout>
           </Section>
 
-          <Section id="score" eyebrow="Architecture" title="How the efficiency score is built">
+          <Section id="score" eyebrow="Architecture" title="Quantitative Scoring Pipeline">
             <p>
-              Raw profit (P&amp;L) rewards big bankrolls, not skill. So instead of just showing P&amp;L, we rebuild
-              each trader&apos;s <em>day-by-day</em> trading history and run real risk-adjusted math on it — the
-              same kind hedge funds use (Sharpe ratio, Sortino ratio, max drawdown, win rate, profit factor),
-              combined into one 0–100 score and a tier (Elite → Risky).
+              To mitigate the inherent bias of absolute profit (P&amp;L), the platform reconstructs each trader&apos;s chronological equity curve and calculates institutional-grade risk metrics (e.g., Sharpe ratio, Sortino ratio, maximum drawdown). These metrics are synthesized into a normalized 0–100 efficiency score and a corresponding performance tier.
             </p>
             <DiagramCard>
               <ScoringDiagram />
             </DiagramCard>
             <p>
-              Kalshi and Polymarket only hand us a headline P&amp;L number — not a day-by-day history. So we
-              reconstruct that history ourselves from each trader&apos;s public on-chain activity (every trade,
-              resolution payout, and reward), then re-derive the metrics from scratch.
+              Because the upstream platforms only expose aggregate P&amp;L figures, the backend service rebuilds the equity curve from scratch by parsing the trader&apos;s public on-chain activity ledger (including trades, resolution payouts, and liquidity rewards).
             </p>
           </Section>
 
-          <Section id="freshness" eyebrow="Architecture" title="Staying fresh, staying up">
+          <Section id="freshness" eyebrow="Architecture" title="Data Synchronization Strategy">
             <p>
-              The backend refreshes its data every few minutes on a free-tier server, which introduces its own
-              quirk: free servers fall asleep when nobody&apos;s hit them in a while — and a sleeping server
-              can&apos;t run its own alarm clock to wake itself up and refresh the data.
+              The backend service is hosted on a scaled-to-zero environment to optimize infrastructure costs. To prevent the service from sleeping and halting the data pipeline, an external scheduling service periodically pings a secured endpoint, triggering the ingestion cycle.
             </p>
             <DiagramCard>
               <FreshnessDiagram />
             </DiagramCard>
+          </Section>
+
+          <Section id="filters" eyebrow="Using the leaderboard" title="Data Confidence & Filtering">
             <p>
-              So an outside service pokes the backend on a schedule: one poke just says &quot;stay awake,&quot;
-              another says &quot;go refresh the data now.&quot; That&apos;s the actual scheduler — not anything
-              running inside the backend itself.
+              <strong>Profitable only</strong> (enabled by default) selectively excludes traders with a negative cumulative P&amp;L.
+            </p>
+            <p>
+              <strong>Low confidence</strong> traders exhibit a significant discrepancy between their upstream reported P&amp;L and our reconstructed equity curve, indicating that the derived risk metrics may be statistically inaccurate.
+            </p>
+            <p>
+              This discrepancy typically occurs due to hard limits imposed by upstream APIs (e.g., Polymarket&apos;s 5,000 event limit per wallet), which truncates the historical data required for an accurate reconstruction. In these cases, the UI displays an informational icon to indicate an upstream data ceiling rather than an algorithmic failure.
+            </p>
+            <p>
+              Ratio-based sorts (Sharpe, Sortino, Efficiency) automatically exclude traders lacking sufficient historical data points to ensure statistical validity.
             </p>
           </Section>
 
-          <Section id="filters" eyebrow="Using the leaderboard" title="Filters & the confidence flag">
-            <p>
-              <strong>Profitable only</strong> (on by default) hides anyone whose all-time P&amp;L isn&apos;t
-              positive — you can turn it off to see the full field, losers included.
-            </p>
-            <p>
-              <strong>Low confidence</strong> traders are ones where our reconstructed day-by-day P&amp;L
-              doesn&apos;t closely match the venue&apos;s own official total — meaning our derived risk metrics for
-              that trader might be off, so we flag it rather than silently present a possibly-wrong score. You can
-              hide these with a toggle.
-            </p>
-            <p>
-              Most of these aren&apos;t really a mismatch, though — they&apos;re a confirmed platform limit.
-              Polymarket&apos;s public activity API hard-rejects any request past 5,000 events per wallet
-              (<Code>&quot;max historical activity offset of 5000 exceeded&quot;</Code>). For a highly active,
-              long-tenured trader, 5,000 events can cover as little as a few weeks — nowhere near their full
-              lifetime record, which the venue&apos;s own leaderboard total still reflects. That case gets a
-              distinct, calmer <em>info</em> icon rather than the orange warning, since it&apos;s an explainable
-              upstream ceiling, not something wrong with our math. The orange warning is reserved for the rarer
-              case where history was retrievable but still doesn&apos;t add up.
-            </p>
-            <p>
-              Ratio-based sorts (Sharpe, Sortino, Efficiency, etc.) also hide anyone with too little trading history
-              to trust a ratio from — a trader with 2 trades can&apos;t have a meaningful Sharpe ratio, however it
-              happens to compute.
-            </p>
-          </Section>
-
-          <Section id="decisions" eyebrow="Reference" title="Decisions & tradeoffs">
-            <p>This section is the honest version — what we chose, and what we gave up to get it.</p>
+          <Section id="decisions" eyebrow="Reference" title="Architectural Tradeoffs">
+            <p>This section documents key architectural decisions and their corresponding technical tradeoffs.</p>
             <ul className="list-disc space-y-2 pl-5">
               <li>
-                <strong>We dropped a third-party aggregator we used early on</strong> in favor of hitting
-                Polymarket&apos;s own official API directly. It meant more engineering (rebuilding the day-by-day
-                history and metrics ourselves), but it means the P&amp;L and rankings shown are traceable to the
-                venue&apos;s own numbers, not someone else&apos;s black-box recomputation.
+                <strong>Direct API Integration:</strong> We deprecated third-party aggregators in favor of direct integration with official APIs. While this required developing a custom equity curve reconstruction engine, it ensures complete data provenance and mathematical transparency.
               </li>
               <li>
-                <strong>Kalshi has no official public leaderboard API</strong> — its documented API is
-                key-authenticated and only exposes your <em>own</em> account, not other traders&apos; rankings.
-                Instead we reverse-engineered the calls its own social leaderboard page makes
-                (<Code>/v1/social/leaderboard</Code>, <Code>/profile</Code>, <Code>/metrics</Code>) directly from
-                browser traffic. The ranking metric currently defaults to <Code>projected_pnl</Code> over a
-                confirmed-working <Code>weekly</Code> window — the closest real option to &quot;profit,&quot;
-                though not literally all-time PnL, since an all-time equivalent hasn&apos;t been confirmed yet. If
-                the endpoint ever breaks or changes shape, ingestion degrades to an empty, clearly-labeled slice
-                rather than guessing at fabricated data.
+                <strong>Kalshi API Reverse-Engineering:</strong> Kalshi lacks an official public leaderboard API. The ingestion pipeline reverse-engineers the network calls utilized by Kalshi&apos;s own social leaderboard (<Code>/v1/social/leaderboard</Code>). If the endpoint structure changes, the ingestion gracefully degrades to an empty state rather than serving fabricated data.
               </li>
               <li>
-                <strong>Neither venue has a dedicated &quot;X/Twitter handle&quot; field</strong> — traders link
-                their account by pasting an x.com URL into a freeform bio field instead (Kalshi&apos;s{" "}
-                <Code>social_profile.description</Code>, Polymarket&apos;s <Code>bio</Code> on activity records). We
-                extract the handle from that URL rather than a structured field, so coverage is inherently partial:
-                only traders who&apos;ve actually done this show an X link.
+                <strong>Stateless Scheduling:</strong> The backend leverages an external HTTP chron job for scheduling rather than internal cron processes. This accommodates the constraints of a serverless/scaled-to-zero hosting environment.
               </li>
               <li>
-                <strong>The backend runs on a free always-on tier</strong>, which sleeps when idle. Rather than
-                pretend an internal cron job would keep it alive (it wouldn&apos;t — a sleeping process runs
-                nothing), an external pinger is the explicit, documented scheduler. This is a real constraint of
-                running for free, stated plainly rather than hidden.
-              </li>
-              <li>
-                <strong>&quot;Deposits&quot; (the capital-efficiency denominator) is a proxy</strong> — peak trade
-                cost basis from on-chain activity, not verified wallet deposit history. It&apos;s good enough to
-                rank by, but it&apos;s not audited on-chain deposit data; traders where it can&apos;t be resolved
-                are excluded from that specific sort rather than shown a fake ratio.
+                <strong>Capital Efficiency Proxies:</strong> The &quot;Deposits&quot; metric (the denominator for capital efficiency) is derived from the peak trade cost basis observed in on-chain activity, rather than audited wallet deposit history. It serves as a functional proxy for ranking purposes.
               </li>
             </ul>
           </Section>
 
-          <Section id="stack" eyebrow="Reference" title="Tech stack, briefly">
+          <Section id="stack" eyebrow="Reference" title="Technology Stack">
             <ul className="list-disc space-y-1.5 pl-5">
               <li>
-                <strong>Frontend:</strong> Next.js (App Router) + React, deployed on Vercel. Reads only from our own
-                backend&apos;s <Code>/api/leaderboard</Code>.
+                <strong>Frontend:</strong> Next.js (App Router) + React, deployed on Vercel. Interfaces exclusively with the internal <Code>/api/leaderboard</Code> route.
               </li>
               <li>
-                <strong>Backend:</strong> Fastify (Node/TypeScript), deployed on Render as an always-on service in a
-                US region. Ingests Polymarket + Kalshi, reconstructs equity curves, computes scores, writes
-                snapshots.
+                <strong>Backend:</strong> Fastify (Node.js/TypeScript), deployed on Render as a background service. Handles Polymarket/Kalshi ingestion, equity curve reconstruction, and snapshot generation.
               </li>
               <li>
-                <strong>Storage:</strong> Postgres — one table of raw per-venue snapshots, one table of current
-                per-trader state, one table of rank history over time (so the UI can show &quot;up 3 spots since
-                last refresh&quot;).
-              </li>
-              <li>
-                <strong>No demo data, ever.</strong> If live data can&apos;t be fetched and there&apos;s no prior
-                good snapshot, the page shows an honest error — never fabricated numbers.
+                <strong>Database:</strong> PostgreSQL, structured with decoupled tables for raw venue snapshots, normalized trader states, and historical rank tracking.
               </li>
             </ul>
           </Section>

@@ -3,7 +3,7 @@
 A leaderboard for Polymarket and Kalshi traders, ranked by **risk-adjusted efficiency**
 (Sharpe, Sortino, drawdown, win rate, profit factor) instead of raw P&L — so a $10→$10,010
 trader can outrank a lucky $1M→$1.01M one. See [`/docs`](app/docs/page.tsx) in the running app
-for the full "explain it like I'm 2" walkthrough with diagrams.
+for a full methodology overview.
 
 ## Why this exists
 

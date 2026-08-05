@@ -7,27 +7,27 @@ export const DOCS_NAV: DocsNavGroup[] = [
   {
     label: "Overview",
     items: [
-      { id: "like-im-2", label: "Explain it like I'm 2" },
-      { id: "big-picture", label: "The big picture" },
+      { id: "methodology-overview", label: "Methodology Overview" },
+      { id: "big-picture", label: "System Architecture" },
     ],
   },
   {
     label: "Architecture",
     items: [
-      { id: "why-backend", label: "Why a separate backend?" },
-      { id: "score", label: "How the score is built" },
-      { id: "freshness", label: "Staying fresh, staying up" },
+      { id: "why-backend", label: "Decoupled Data Ingestion" },
+      { id: "score", label: "Quantitative Scoring Pipeline" },
+      { id: "freshness", label: "Data Synchronization Strategy" },
     ],
   },
   {
     label: "Using the leaderboard",
-    items: [{ id: "filters", label: "Filters & confidence" }],
+    items: [{ id: "filters", label: "Data Confidence & Filtering" }],
   },
   {
     label: "Reference",
     items: [
-      { id: "decisions", label: "Decisions & tradeoffs" },
-      { id: "stack", label: "Tech stack" },
+      { id: "decisions", label: "Architectural Tradeoffs" },
+      { id: "stack", label: "Technology Stack" },
     ],
   },
 ];
