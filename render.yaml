@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: leaderboard-backend
+    env: node
+    region: oregon # US region for upstream reachability
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: INGEST_TOKEN
+        sync: false
+      - key: KALSHI_ENABLED
+        value: "true"
+      - key: FRONTEND_ORIGIN
+        value: "*"
+      - key: LEADERBOARD_LIMIT
+        value: "100"

@@ -6,14 +6,19 @@ import type { FilterState, Period, Tier, Venue } from "@/lib/types";
 import { SORT_OPTIONS, MIN_DATA_POINTS_FOR_RATIO_SORT } from "@/lib/sorting";
 import { VENUE_OPTIONS } from "@/components/VenueBadge";
 import { Dropdown } from "@/components/Dropdown";
+import { formatUsd } from "@/lib/format";
 
 const PERIODS: Period[] = ["1D", "1W", "1M", "YTD", "ALL"];
 const TIERS: Tier[] = ["Elite", "Great", "Good", "Average", "Risky"];
+// Thresholds sized to the real observed P&L distribution (live check: min ~$79k, p25 ~$383k,
+// median ~$3.7M, p75 ~$6.1M, max ~$22.5M) — the previous $5+/$1k+/$10k+ steps were leftover from
+// a much smaller-scale dataset and every current trader cleared all three, making the buttons
+// functionally identical to "All".
 const PNL_QUICK: { label: string; value: number }[] = [
   { label: "All", value: -Infinity },
-  { label: "$5+", value: 5 },
-  { label: "$1k+", value: 1000 },
-  { label: "$10k+", value: 10000 },
+  { label: "$100k+", value: 100_000 },
+  { label: "$1M+", value: 1_000_000 },
+  { label: "$5M+", value: 5_000_000 },
 ];
 
 function Pill({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -27,6 +32,15 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
     >
       {children}
     </button>
+  );
+}
+
+function FilterGroup({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="px-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-faint">{label}</span>
+      {children}
+    </div>
   );
 }
 
@@ -85,7 +99,7 @@ export function FilterRail({
   const activeExtraCount = [
     filters.minWinRate > 0,
     filters.maxDrawdownPercent < 1,
-    filters.xLinkedOnly,
+
     filters.affiliatedOnly,
     filters.multiWalletOnly,
     filters.recentlyActiveOnly,
@@ -182,14 +196,16 @@ export function FilterRail({
       </div>
 
       {/* Row 2: period + venue + pnl quick-select */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <div className="flex rounded-lg border border-border p-0.5">
-          {PERIODS.map((p) => (
-            <Pill key={p} active={filters.period === p} onClick={() => set("period", p)}>
-              {p}
-            </Pill>
-          ))}
-        </div>
+      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+        <FilterGroup label="Period">
+          <div className="flex rounded-lg border border-border p-0.5">
+            {PERIODS.map((p) => (
+              <Pill key={p} active={filters.period === p} onClick={() => set("period", p)}>
+                {p}
+              </Pill>
+            ))}
+          </div>
+        </FilterGroup>
 
         <Dropdown
           trigger={({ open }) => (
@@ -199,6 +215,7 @@ export function FilterRail({
                 open ? "border-accent text-text" : "border-border text-text-muted hover:text-text"
               )}
             >
+              <span className="text-text-faint">Venue:</span>
               {VENUE_OPTIONS.find((v) => v.value === filters.venue)?.label}
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <polyline points="6 9 12 15 18 9" />
@@ -265,21 +282,25 @@ export function FilterRail({
           </Dropdown>
         )}
 
-        <div className="flex rounded-lg border border-border p-0.5">
-          {PNL_QUICK.map((q) => (
-            <Pill key={q.label} active={filters.minPnl === q.value} onClick={() => set("minPnl", q.value)}>
-              {q.label}
-            </Pill>
-          ))}
-        </div>
+        <FilterGroup label="Min P&L">
+          <div className="flex rounded-lg border border-border p-0.5">
+            {PNL_QUICK.map((q) => (
+              <Pill key={q.label} active={filters.minPnl === q.value} onClick={() => set("minPnl", q.value)}>
+                {q.label}
+              </Pill>
+            ))}
+          </div>
+        </FilterGroup>
 
-        <div className="flex flex-wrap gap-1">
-          {TIERS.map((t) => (
-            <Pill key={t} active={filters.tiers.includes(t)} onClick={() => toggleTier(t)}>
-              {t}
-            </Pill>
-          ))}
-        </div>
+        <FilterGroup label="Tier">
+          <div className="flex flex-wrap gap-1">
+            {TIERS.map((t) => (
+              <Pill key={t} active={filters.tiers.includes(t)} onClick={() => toggleTier(t)}>
+                {t}
+              </Pill>
+            ))}
+          </div>
+        </FilterGroup>
 
         <button
           onClick={() => setMoreOpen((v) => !v)}
@@ -343,16 +364,79 @@ export function FilterRail({
                 className="accent-[var(--accent)]"
               />
             </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="flex justify-between text-xs font-medium text-text-muted">
+                Min volume <span className="font-mono text-text">{formatUsd(filters.minVolume, { compact: true })}</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={5_000_000}
+                step={100_000}
+                value={filters.minVolume}
+                onChange={(e) => set("minVolume", Number(e.target.value))}
+                className="accent-[var(--accent)]"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="flex justify-between text-xs font-medium text-text-muted">
+                Min capital <span className="font-mono text-text">{formatUsd(filters.minCapital, { compact: true })}</span>
+              </span>
+              <input
+                type="range"
+                min={0}
+                max={5_000_000}
+                step={100_000}
+                value={filters.minCapital}
+                onChange={(e) => set("minCapital", Number(e.target.value))}
+                className="accent-[var(--accent)]"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="flex justify-between text-xs font-medium text-text-muted">
+                Min Sharpe <span className="font-mono text-text">{filters.minSharpe === -Infinity ? "Any" : filters.minSharpe.toFixed(1)}</span>
+              </span>
+              <input
+                type="range"
+                min={-2}
+                max={5}
+                step={0.5}
+                value={filters.minSharpe === -Infinity ? -2 : filters.minSharpe}
+                onChange={(e) => set("minSharpe", Number(e.target.value) <= -2 ? -Infinity : Number(e.target.value))}
+                className="accent-[var(--accent)]"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="flex justify-between text-xs font-medium text-text-muted">
+                Min Sortino <span className="font-mono text-text">{filters.minSortino === -Infinity ? "Any" : filters.minSortino.toFixed(1)}</span>
+              </span>
+              <input
+                type="range"
+                min={-2}
+                max={5}
+                step={0.5}
+                value={filters.minSortino === -Infinity ? -2 : filters.minSortino}
+                onChange={(e) => set("minSortino", Number(e.target.value) <= -2 ? -Infinity : Number(e.target.value))}
+                className="accent-[var(--accent)]"
+              />
+            </label>
           </div>
 
           <div className="flex flex-wrap gap-2">
+            <Toggle checked={filters.profitableOnly} onChange={(v) => set("profitableOnly", v)} label="Profitable only" />
             <Toggle
               checked={filters.hideThinSamples}
               onChange={(v) => set("hideThinSamples", v)}
               label={`Hide thin samples (<${MIN_DATA_POINTS_FOR_RATIO_SORT}d)`}
               hint="Excludes traders whose sample size is too small to trust a ratio-based rank"
             />
-            <Toggle checked={filters.xLinkedOnly} onChange={(v) => set("xLinkedOnly", v)} label="X linked" />
+            <Toggle
+              checked={filters.hideLowConfidence}
+              onChange={(v) => set("hideLowConfidence", v)}
+              label="Hide low confidence"
+              hint="Hide traders whose score is based on partial history — either a genuine mismatch, or Polymarket's API hard-limiting how much lifetime history is retrievable"
+            />
+
             <Toggle checked={filters.affiliatedOnly} onChange={(v) => set("affiliatedOnly", v)} label="Verified / affiliated" />
             <Toggle checked={filters.multiWalletOnly} onChange={(v) => set("multiWalletOnly", v)} label="Multi-wallet" />
             <Toggle checked={filters.recentlyActiveOnly} onChange={(v) => set("recentlyActiveOnly", v)} label="Active this week" />

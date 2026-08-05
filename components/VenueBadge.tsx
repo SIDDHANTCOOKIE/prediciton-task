@@ -1,15 +1,21 @@
 import clsx from "clsx";
 import type { Venue } from "@/lib/types";
+import { PolymarketIcon, KalshiIcon } from "@/components/icons/VenueIcons";
 
-const VENUE_META: Record<Exclude<Venue, "both">, { label: string; abbr: string; color: string }> = {
-  polymarket: { label: "Polymarket", abbr: "P", color: "#6366f1" },
-  kalshi: { label: "Kalshi", abbr: "K", color: "#10b981" },
+// Real brand colors: Kalshi's confirmed from their own logo SVG fill (#21c891); Polymarket's
+// confirmed from polymarket.com/brand's own page CSS (#1652f0). Myriad/Opinion have no ingester
+// yet (see lib/types.ts's Venue union) so keep a plain initial — nothing to source a real mark
+// for until those venues are actually wired up.
+const VENUE_META: Record<Exclude<Venue, "both">, { label: string; abbr: string; color: string; Icon?: (p: { className?: string; size?: number }) => React.ReactElement }> = {
+  polymarket: { label: "Polymarket", abbr: "P", color: "#1652f0", Icon: PolymarketIcon },
+  kalshi: { label: "Kalshi", abbr: "K", color: "#21c891", Icon: KalshiIcon },
   myriad: { label: "Myriad", abbr: "M", color: "#f97316" },
   opinion: { label: "Opinion", abbr: "O", color: "#ec4899" },
 };
 
 function Dot({ v, size = "sm" }: { v: Exclude<Venue, "both">; size?: "sm" | "xs" }) {
   const m = VENUE_META[v];
+  const iconSize = size === "sm" ? 11 : 9;
   return (
     <span
       title={m.label}
@@ -19,7 +25,7 @@ function Dot({ v, size = "sm" }: { v: Exclude<Venue, "both">; size?: "sm" | "xs"
       )}
       style={{ backgroundColor: m.color }}
     >
-      {m.abbr}
+      {m.Icon ? <m.Icon size={iconSize} /> : m.abbr}
     </span>
   );
 }

@@ -37,6 +37,14 @@ export type Trader = {
   previousScoreRank?: number;
   /** Dominant Polymarket market category by traded volume, when resolvable. */
   dominantCategory?: string;
+  /** True if the reconstructed PnL matches the upstream leaderboard PnL. */
+  isConfident?: boolean;
+  /** True when isConfident is false specifically because the venue's public API has a hard
+   *  ceiling on retrievable history (confirmed: Polymarket's /activity rejects any offset past
+   *  5000) — the trader's full lifetime record structurally can't be fetched, as opposed to some
+   *  other reconciliation failure. Distinguishes "this is a known platform limit" from "something
+   *  looks off" in the UI, since the former shouldn't read as alarming. */
+  historyTruncated?: boolean;
 };
 
 /** Stable unique identity for a trader row. Display names alone aren't guaranteed unique
@@ -86,11 +94,17 @@ export type FilterState = {
   venue: Venue | "all";
   category: string | "all";
   tiers: Tier[]; // empty = all tiers
+  profitableOnly: boolean;
   minPnl: number;
+  minVolume: number;
+  minCapital: number;
   minScore: number;
+  minSharpe: number;
+  minSortino: number;
   minWinRate: number; // 0-1
   maxDrawdownPercent: number; // 0-1, 1 = no cap
   hideThinSamples: boolean;
+  hideLowConfidence: boolean;
   xLinkedOnly: boolean;
   affiliatedOnly: boolean;
   multiWalletOnly: boolean;
@@ -105,11 +119,24 @@ export const DEFAULT_FILTERS: FilterState = {
   venue: "all",
   category: "all",
   tiers: [],
+  profitableOnly: true,
   minPnl: -Infinity,
+  minVolume: 0,
+  minCapital: 0,
   minScore: 0,
+  minSharpe: -Infinity,
+  minSortino: -Infinity,
   minWinRate: 0,
   maxDrawdownPercent: 1,
-  hideThinSamples: true,
+  // Default OFF: Kalshi traders are hardcoded to dataPoints=0 (that ingester has no daily
+  // equity curve by design), and most Polymarket traders don't yet have 30+ reconstructed days
+  // (activity fetch isn't paginated to full history yet). With this on by default, it silently
+  // hid essentially the entire leaderboard (confirmed live: 68/70 traders, 100% of Kalshi) rather
+  // than just flagging the ones with too little history to trust a ratio from. The existing
+  // per-row thin-sample warning icon (LeaderboardTable) still signals this — opt-in hiding via
+  // the filter toggle, not silent exclusion by default.
+  hideThinSamples: false,
+  hideLowConfidence: false,
   xLinkedOnly: false,
   affiliatedOnly: false,
   multiWalletOnly: false,

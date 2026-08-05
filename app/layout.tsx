@@ -15,9 +15,12 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Efficiency Leaderboard — Prediction Market Traders",
+  title: {
+    default: "Elcara Predictor — Prediction Market Efficiency Leaderboard",
+    template: "%s · Elcara Predictor",
+  },
   description:
-    "A prediction-market trader leaderboard ranked by risk-adjusted efficiency, not just raw P&L.",
+    "Elcara Predictor ranks Polymarket and Kalshi traders by risk-adjusted efficiency — Sharpe, Sortino, drawdown, and win rate — not just raw P&L.",
 };
 
 const THEME_INIT_SCRIPT = `

@@ -110,7 +110,8 @@ export default function Home() {
           className="mx-4 mt-4 rounded-lg border px-4 py-3 text-sm sm:mx-6"
           style={{ borderColor: "var(--orange)", backgroundColor: "var(--orange-soft)", color: "var(--orange)" }}
         >
-          Showing the last successful live snapshot — the most recent refresh attempt failed.
+          Showing the last successful live snapshot — data hasn&apos;t refreshed recently (the backend may have been
+          asleep/idle, or a refresh attempt failed).
         </div>
       )}
 
@@ -123,12 +124,12 @@ export default function Home() {
         {!data && !error ? (
           <TableSkeleton />
         ) : data ? (
-          <LeaderboardTable traders={result} filters={filters} onSortChange={handleSortChange} selected={selected} onToggleSelect={toggleSelect} />
+          <LeaderboardTable traders={result} totalCount={data.count} filters={filters} onSortChange={handleSortChange} selected={selected} onToggleSelect={toggleSelect} />
         ) : null}
       </main>
 
       <footer className="mt-auto border-t border-border-soft px-4 py-6 text-center text-xs text-text-faint sm:px-6">
-        Live trader data via predicting.top&apos;s public leaderboard API — re-ranked and re-filtered here for efficiency-first sorting.
+        Live data ingested directly from Polymarket & Kalshi APIs, with locally calculated risk-adjusted scores.
       </footer>
 
       <CompareBar

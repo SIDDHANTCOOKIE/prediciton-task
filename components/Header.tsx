@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { formatUsd, timeAgo } from "@/lib/format";
+import { Logo } from "@/components/Logo";
 import type { Venue } from "@/lib/types";
 
 const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), {
@@ -12,11 +13,12 @@ const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), {
   loading: () => <div className="h-8 w-8 shrink-0" />,
 });
 
-function NavTabs() {
+export function NavTabs() {
   const pathname = usePathname();
   const tabs = [
     { href: "/", label: "Leaderboard" },
     { href: "/positions", label: "Positions" },
+    { href: "/docs", label: "Docs" },
   ];
   return (
     <nav className="flex gap-1 rounded-lg border border-border p-0.5">
@@ -65,8 +67,8 @@ export function Header({
     <header className="border-b border-border-soft px-4 pb-5 pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-text sm:text-[28px]">Efficiency Leaderboard</h1>
-          <p className="mt-1 text-sm text-text-muted">Ranked by risk-adjusted skill, not just bankroll size.</p>
+          <Logo size={30} />
+          <p className="mt-1.5 text-sm text-text-muted">Ranked by risk-adjusted skill, not just bankroll size.</p>
         </div>
         <div className="flex items-center gap-3">
           <NavTabs />

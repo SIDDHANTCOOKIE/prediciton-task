@@ -19,7 +19,6 @@ const COLUMNS: { key: SortKey | "rank" | "trader" | "venue" | "select"; label: s
   { key: "pnl", label: "P&L", sortable: true },
   { key: "winRate", label: "Win %", sortable: true },
   { key: "venue", label: "Venue", sortable: false },
-  { key: "trader", label: "Trend", sortable: false },
 ];
 
 function SortIcon({ active, dir }: { active: boolean; dir: "asc" | "desc" }) {
@@ -59,12 +58,17 @@ function Avatar({ name, pfp }: { name: string; pfp: string }) {
 
 export function LeaderboardTable({
   traders,
+  totalCount,
   filters,
   onSortChange,
   selected,
   onToggleSelect,
 }: {
   traders: Trader[];
+  /** Total traders before filtering — distinguishes "the dataset is empty" (an ingestion/freshness
+   *  problem) from "your filters matched nothing" (a filter problem). Without this, an empty
+   *  ingest looks identical to an over-narrow filter and misdirects toward tweaking filters. */
+  totalCount: number;
   filters: FilterState;
   onSortChange: (key: SortKey) => void;
   selected: Set<string>;
@@ -75,15 +79,24 @@ export function LeaderboardTable({
   if (traders.length === 0) {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-20 text-center">
-        <span className="text-sm font-medium text-text">No traders match these filters</span>
-        <span className="text-xs text-text-faint">Try widening the min-score or drawdown filters.</span>
+        {totalCount === 0 ? (
+          <>
+            <span className="text-sm font-medium text-text">No trader data available right now</span>
+            <span className="text-xs text-text-faint">The live dataset is empty — this is a data freshness issue, not your filters. Try again shortly.</span>
+          </>
+        ) : (
+          <>
+            <span className="text-sm font-medium text-text">No traders match these filters</span>
+            <span className="text-xs text-text-faint">Try widening the min-score or drawdown filters.</span>
+          </>
+        )}
       </div>
     );
   }
 
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[860px] border-collapse text-sm">
+      <table className="w-full min-w-[760px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-border-soft text-left text-xs text-text-faint">
             {COLUMNS.map((col, i) => {
@@ -155,11 +168,6 @@ export function LeaderboardTable({
                       <div className="flex min-w-0 flex-col">
                         <span className="flex items-center gap-1.5 truncate font-medium text-text">
                           {t.name}
-                          {t.twitter && (
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 text-text-faint">
-                              <path d="M18.9 2H22l-7.6 8.7L23.3 22h-7l-5.5-6.8L4.4 22H1.3l8.2-9.3L1 2h7.2l5 6.2L18.9 2zm-1.2 18h1.7L7.4 4H5.6l12.1 16z" />
-                            </svg>
-                          )}
                           {t.affiliated && (
                             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" className="shrink-0">
                               <path d="M20 6 9 17l-5-5" />
@@ -186,6 +194,22 @@ export function LeaderboardTable({
                           </svg>
                         </span>
                       )}
+                      {t.isConfident === false && t.historyTruncated && (
+                        <span
+                          title="Score based on partial trading history — Polymarket's public API only exposes each trader's most recent ~5,000 events (a hard platform limit), not their full lifetime record. Not an error, just an upstream data limit."
+                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-text-faint"
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 16v-5M12 8h.01" strokeLinecap="round" />
+                          </svg>
+                        </span>
+                      )}
+                      {t.isConfident === false && !t.historyTruncated && (
+                        <span title="Low confidence: reconstructed history's P&L doesn't match the venue's own reported total" className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-soft text-[10px] font-bold text-orange">
+                          !
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td
@@ -202,15 +226,15 @@ export function LeaderboardTable({
                   <td className="px-3 py-2.5">
                     <VenueBadges venue={t.platform} />
                   </td>
-                  <td className="px-3 py-2.5">
-                    <Sparkline data={t.equity_curve} />
-                  </td>
                 </tr>
                 {isOpen && (
                   <tr className="border-b border-border-soft bg-bg">
                     <td colSpan={COLUMNS.length} className="p-0">
                       <div className="animate-fade-in-up flex items-center justify-between px-4 pt-3">
-                        <TierChip tier={t.smart_score.tier} />
+                        <div className="flex items-center gap-3">
+                          <TierChip tier={t.smart_score.tier} />
+                          <Sparkline data={t.equity_curve} width={120} height={32} />
+                        </div>
                         <span className="font-mono text-[11px] text-text-faint">
                           Active sort: {activeSort.label} — {activeSort.format(t)}
                         </span>

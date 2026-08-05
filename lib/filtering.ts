@@ -16,10 +16,16 @@ export function applyFilters(traders: Trader[], f: FilterState): Trader[] {
     if (f.venue !== "all" && t.platform !== f.venue) return false;
     if (f.category !== "all" && t.dominantCategory !== f.category) return false;
     if (f.tiers.length > 0 && !f.tiers.includes(t.smart_score.tier)) return false;
+    if (f.profitableOnly && t.stats.pnl <= 0) return false;
     if (t.stats.pnl < f.minPnl) return false;
+    if ((t.stats.buys + t.stats.sells) < f.minVolume) return false;
+    if (t.deposits < f.minCapital) return false;
     if (t.smart_score.score < f.minScore) return false;
+    if (t.smart_score.sharpeRatio < f.minSharpe) return false;
+    if (t.smart_score.sortinoRatio < f.minSortino) return false;
     if (t.smart_score.winRate < f.minWinRate) return false;
     if (t.smart_score.maxDrawdownPercent > f.maxDrawdownPercent) return false;
+    if (f.hideLowConfidence && t.isConfident === false) return false;
     if (f.hideThinSamples && !isEligibleForRatioSort(t)) return false;
     if (f.sortKey === "returnOnCapital" && !hasUsableDeposits(t)) return false;
     if (f.xLinkedOnly && !t.twitter) return false;

@@ -159,7 +159,7 @@ export default function PositionsPage() {
 
       <footer className="mt-auto border-t border-border-soft px-4 py-6 text-center text-xs text-text-faint sm:px-6">
         Live open positions for Polymarket&apos;s top 40 wallets by P&amp;L, fetched directly from Polymarket&apos;s public API — a different
-        wallet set/ranking than the main leaderboard (sourced from predicting.top), so tier badges may be sparse here.
+        wallet set/ranking than the main leaderboard (served from our own backend), so tier badges may be sparse here.
       </footer>
     </div>
   );
