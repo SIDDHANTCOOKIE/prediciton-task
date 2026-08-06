@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Position, Tier, Venue } from "@/lib/types";
+import { useLiveData } from "@/lib/useLiveData";
 import { Header } from "@/components/Header";
 import { PositionsTable } from "@/components/PositionsTable";
 import { MarketGroupedPositions } from "@/components/MarketGroupedPositions";
@@ -26,32 +27,12 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
 }
 
 export default function PositionsPage() {
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, isRefreshing, refresh } = useLiveData<ApiResponse>("/api/positions");
   const [view, setView] = useState<"trader" | "market">("trader");
   const [minSize, setMinSize] = useState(0);
   const [venue, setVenue] = useState<Venue | "all">("all");
   const [side, setSide] = useState<"all" | "YES" | "NO">("all");
   const [tiers, setTiers] = useState<Tier[]>([]);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/positions")
-      .then(async (r) => {
-        const json: ApiResponse = await r.json();
-        if (!r.ok || json.error) throw new Error(json.error ?? `Live data request failed (HTTP ${r.status})`);
-        return json;
-      })
-      .then((json) => {
-        if (!cancelled) setData(json);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message ?? "Failed to load live positions data");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -70,14 +51,22 @@ export default function PositionsPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1100px] flex-1 flex-col">
-      <Header updatedAt={data?.updatedAt ?? null} totalPnl={null} hasError={!!error} />
+      <Header
+        updatedAt={data?.updatedAt ?? null}
+        totalPnl={null}
+        hasError={!data && !!error}
+        stale={!!data?.stale}
+        isRefreshing={isRefreshing}
+        onRefresh={refresh}
+      />
 
       {error && (
         <div
           className="mx-4 mt-4 rounded-lg border px-4 py-3 text-sm sm:mx-6"
           style={{ borderColor: "var(--red)", backgroundColor: "var(--red-soft)", color: "var(--red)" }}
         >
-          <strong className="font-semibold">Live data unavailable.</strong> {error} No demo data is shown as a substitute.
+          <strong className="font-semibold">Live data unavailable.</strong> {error}{" "}
+          {data ? "Showing the last successful snapshot." : "No demo data is shown as a substitute."}
         </div>
       )}
 
@@ -158,8 +147,8 @@ export default function PositionsPage() {
       </main>
 
       <footer className="mt-auto border-t border-border-soft px-4 py-6 text-center text-xs text-text-faint sm:px-6">
-        Live open positions for Polymarket&apos;s top 40 wallets by P&amp;L, fetched directly from Polymarket&apos;s public API — a different
-        wallet set/ranking than the main leaderboard (served from our own backend), so tier badges may be sparse here.
+        Live open positions for the same Polymarket wallets ranked on the leaderboard, ingested and persisted by our
+        own backend alongside their scores — tier badges come straight from that snapshot.
       </footer>
     </div>
   );

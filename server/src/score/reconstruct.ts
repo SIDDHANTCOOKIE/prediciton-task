@@ -1,4 +1,5 @@
 import { DailyReturn } from "../../../lib/metrics";
+import { Period } from "../../../lib/types";
 
 export type PolymarketActivity = {
   id: string;
@@ -150,4 +151,25 @@ export function reconstructEquityCurve(
   }
 
   return { series, equityCurve, deposits, buyVolume, sellVolume, isConfident };
+}
+
+const PERIOD_WINDOW_DAYS: Record<"1D" | "1W" | "1M", number> = { "1D": 1, "1W": 7, "1M": 30 };
+
+/** Sums the reconstructed daily P&L series (the same dated series driving Sharpe/Sortino/etc.,
+ *  not fabricated) within each period window, anchored to `now`. Only meaningful where a dated
+ *  daily series exists — Kalshi's ingester has none (`dataPoints: 0` by design, see
+ *  server/src/ingest/kalshi.ts), so its traders get no periodPnl at all rather than a fake
+ *  number; lib/filtering.ts excludes them from a non-ALL period view instead of showing one. */
+export function computePeriodPnl(series: DailyReturn[], now: Date = new Date()): Partial<Record<Period, number>> {
+  const result: Partial<Record<Period, number>> = {};
+  const todayStr = now.toISOString().split("T")[0];
+  const yearStart = `${now.getUTCFullYear()}-01-01`;
+
+  (Object.entries(PERIOD_WINDOW_DAYS) as [keyof typeof PERIOD_WINDOW_DAYS, number][]).forEach(([period, days]) => {
+    const cutoff = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+    result[period] = series.filter((d) => d.date >= cutoff && d.date <= todayStr).reduce((sum, d) => sum + d.pnl, 0);
+  });
+  result.YTD = series.filter((d) => d.date >= yearStart && d.date <= todayStr).reduce((sum, d) => sum + d.pnl, 0);
+
+  return result;
 }

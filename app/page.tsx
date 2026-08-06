@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Trader, FilterState, SortKey } from "@/lib/types";
 import { DEFAULT_FILTERS, traderKey } from "@/lib/types";
 import { applyFiltersAndSort } from "@/lib/filtering";
+import { useLiveData } from "@/lib/useLiveData";
 import { Header } from "@/components/Header";
 import { FilterRail } from "@/components/FilterRail";
 import { LeaderboardTable } from "@/components/LeaderboardTable";
@@ -15,30 +16,10 @@ import { CompareDrawer } from "@/components/CompareDrawer";
 type ApiResponse = { updatedAt: string | null; count: number; traders: Trader[]; stale?: boolean; error?: string };
 
 export default function Home() {
-  const [data, setData] = useState<ApiResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { data, error, isRefreshing, refresh } = useLiveData<ApiResponse>("/api/leaderboard");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/leaderboard")
-      .then(async (r) => {
-        const json: ApiResponse = await r.json();
-        if (!r.ok || json.error) throw new Error(json.error ?? `Live data request failed (HTTP ${r.status})`);
-        return json;
-      })
-      .then((json) => {
-        if (!cancelled) setData(json);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e.message ?? "Failed to load live leaderboard data");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const result = useMemo(() => (data ? applyFiltersAndSort(data.traders, filters) : []), [data, filters]);
 
@@ -93,7 +74,10 @@ export default function Home() {
         pnlByVenue={pnlByVenue}
         activeVenue={filters.venue}
         onVenueSelect={(v) => setFilters((f) => ({ ...f, venue: v }))}
-        hasError={!!error}
+        hasError={!data && !!error}
+        stale={!!data?.stale}
+        isRefreshing={isRefreshing}
+        onRefresh={refresh}
       />
 
       {error && (
@@ -101,7 +85,8 @@ export default function Home() {
           className="mx-4 mt-4 rounded-lg border px-4 py-3 text-sm sm:mx-6"
           style={{ borderColor: "var(--red)", backgroundColor: "var(--red-soft)", color: "var(--red)" }}
         >
-          <strong className="font-semibold">Live data unavailable.</strong> {error} No demo data is shown as a substitute — try again shortly.
+          <strong className="font-semibold">Live data unavailable.</strong> {error}{" "}
+          {data ? "Showing the last successful snapshot." : "No demo data is shown as a substitute — try again shortly."}
         </div>
       )}
 

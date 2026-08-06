@@ -198,7 +198,14 @@ export function FilterRail({
       {/* Row 2: period + venue + pnl quick-select */}
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
         <FilterGroup label="Period">
-          <div className="flex rounded-lg border border-border p-0.5">
+          <div
+            className="flex rounded-lg border border-border p-0.5"
+            title={
+              filters.period === "ALL"
+                ? undefined
+                : "P&L for this window, from each trader's real reconstructed daily history. Traders with no data for this window (e.g. all Kalshi accounts, which have no dated daily history) are hidden rather than shown a stale all-time number."
+            }
+          >
             {PERIODS.map((p) => (
               <Pill key={p} active={filters.period === p} onClick={() => set("period", p)}>
                 {p}

@@ -45,6 +45,13 @@ export type Trader = {
    *  other reconciliation failure. Distinguishes "this is a known platform limit" from "something
    *  looks off" in the UI, since the former shouldn't read as alarming. */
   historyTruncated?: boolean;
+  /** Dollar P&L within each period window (1D/1W/1M/YTD), derived from the same dated daily
+   *  series used for scoring — not fabricated (see server/src/score/reconstruct.ts's
+   *  computePeriodPnl). Missing for a period means "not computable for this trader" (e.g. every
+   *  Kalshi trader, whose ingester has no dated daily series at all), not zero — the Period
+   *  filter (lib/filtering.ts) excludes such traders from a non-ALL period rather than show a
+   *  fake number for them. */
+  periodPnl?: Partial<Record<Period, number>>;
 };
 
 /** Stable unique identity for a trader row. Display names alone aren't guaranteed unique

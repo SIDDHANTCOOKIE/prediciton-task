@@ -142,3 +142,13 @@ body {
 .animate-fade-in-up {
   animation: fade-in-up 0.25s ease-out both;
 }
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

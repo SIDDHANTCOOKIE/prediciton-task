@@ -85,6 +85,15 @@ service.
 
 One always-pinged free instance runs ~730 hrs/month, under Render's 750-hr free cap.
 
+`POST /ingest` returns `202 {"status":"started"}` immediately and runs the actual ingest (which
+can take minutes for 40+ wallets) in the background — this keeps a pinger's request from timing
+out and retrying into overlapping runs. All ingest triggers (the pinger, the internal 10-minute
+cron, and a boot-time check) share one in-flight run (`server/src/ingest/runIngest.ts`), so
+overlapping calls are safe. On top of the pinger, the server also self-heals on a cold boot: if
+the newest snapshot is already older than 15 minutes when the process starts, it kicks off a
+background ingest immediately rather than waiting for the next cron tick or pinger hit. Pass
+`?wait=1` to `POST /ingest` to get the old synchronous behavior back for local testing.
+
 ## Kalshi ingestion status
 
 Confirmed real, from inspecting `kalshi.com/social/leaderboard`'s own network traffic:

@@ -1,5 +1,6 @@
 import type { Position } from "@/lib/types";
 import { TierChip } from "@/components/ScoreBadge";
+import { traderProfileUrl } from "@/lib/format";
 
 function SideColumn({ positions, side }: { positions: Position[]; side: "YES" | "NO" }) {
   const rows = positions
@@ -18,15 +19,24 @@ function SideColumn({ positions, side }: { positions: Position[]; side: "YES" | 
       </div>
       <div className="flex flex-col gap-1.5">
         {rows.length === 0 && <span className="text-xs text-text-faint">No positions</span>}
-        {rows.map((p, i) => (
-          <div key={`${p.wallet}-${i}`} className="flex items-center justify-between rounded-lg border border-border-soft px-2.5 py-1.5">
-            <span className="flex items-center gap-1.5 text-sm text-text">
-              {p.trader}
-              {p.traderTier && <TierChip tier={p.traderTier} />}
-            </span>
-            <span className="font-mono text-xs text-text-muted">{p.size.toLocaleString()}</span>
-          </div>
-        ))}
+        {rows.map((p, i) => {
+          const profileUrl = traderProfileUrl(p);
+          return (
+            <div key={`${p.wallet}-${i}`} className="flex items-center justify-between rounded-lg border border-border-soft px-2.5 py-1.5">
+              <span className="flex items-center gap-1.5 text-sm text-text">
+                {profileUrl ? (
+                  <a href={profileUrl} target="_blank" rel="noopener noreferrer" title={`Open ${p.trader}'s profile`} className="hover:underline">
+                    {p.trader}
+                  </a>
+                ) : (
+                  p.trader
+                )}
+                {p.traderTier && <TierChip tier={p.traderTier} />}
+              </span>
+              <span className="font-mono text-xs text-text-muted">{p.size.toLocaleString()}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

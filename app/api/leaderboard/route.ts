@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { assignPercentiles } from "@/lib/metrics";
 
+// This route exists to be polled (see lib/useLiveData.ts) — Next's fetch/route caching would
+// otherwise freeze responses independently of how fresh the backend's own data is.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export async function GET() {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
     const res = await fetch(`${backendUrl}/api/leaderboard`, {
-      next: { revalidate: 60 } // optional Next.js cache
+      cache: "no-store",
     });
 
     if (!res.ok) {

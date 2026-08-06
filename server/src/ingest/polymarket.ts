@@ -1,6 +1,6 @@
-import { Trader } from "../../../lib/types";
+import { Trader, Position } from "../../../lib/types";
 import { computeSmartScore } from "../../../lib/metrics";
-import { reconstructEquityCurve } from "../score/reconstruct";
+import { reconstructEquityCurve, computePeriodPnl } from "../score/reconstruct";
 import { fetchJson, unwrapList, num, str, extractXHandle } from "../util/http";
 import { mapWithConcurrency } from "../util/concurrency";
 
@@ -56,7 +56,7 @@ async function fetchAllActivity(
   return { activities: all, historyTruncated: true };
 }
 
-export async function ingestPolymarket(): Promise<Trader[]> {
+export async function ingestPolymarket(): Promise<{ traders: Trader[]; positions: Position[] }> {
   const limit = process.env.LEADERBOARD_LIMIT ? parseInt(process.env.LEADERBOARD_LIMIT, 10) : 100;
   const url = `${DATA_API}/v1/leaderboard?category=OVERALL&timePeriod=ALL&orderBy=PNL&limit=${limit}`;
 
@@ -83,9 +83,10 @@ export async function ingestPolymarket(): Promise<Trader[]> {
   console.log(`[Polymarket] Fetched ${baseTraders.length} base traders. Enhancing with history...`);
 
   const CONCURRENCY = 5;
-  const traders = await mapWithConcurrency(baseTraders, CONCURRENCY, async (base) => {
+  const perTrader = await mapWithConcurrency(baseTraders, CONCURRENCY, async (base) => {
     // 1. Fetch positions first — needed up front so activity pagination can check reconciliation
     // (which requires unrealized P&L from positions) after every page, not just at the end.
+    // Also reused below (step 5) to build the Positions-page feed, so we don't re-fetch per venue.
     let positions: any[] = [];
     try {
       const posJson = await fetchJson(`${DATA_API}/positions?user=${base.wallet}`);
@@ -129,6 +130,10 @@ export async function ingestPolymarket(): Promise<Trader[]> {
     // 4. Compute Smart Score
     const smartScore = computeSmartScore(series, new Date().toISOString());
 
+    // 5. Period P&L (1D/1W/1M/YTD), for the leaderboard's Period filter — see
+    // server/src/score/reconstruct.ts's computePeriodPnl for why this is real, not fabricated.
+    const periodPnl = computePeriodPnl(series);
+
     const t: Trader = {
       rank: base.rank,
       name: base.name,
@@ -161,9 +166,42 @@ export async function ingestPolymarket(): Promise<Trader[]> {
       isConfident,
       // Only meaningful when isConfident is false — see the Trader type's doc comment.
       historyTruncated: !isConfident && historyTruncated,
+      periodPnl,
     };
-    return t;
+
+    // 6. Map this wallet's raw positions into the Positions-page shape (matches the mapping
+    // app/api/positions/route.ts used to do client-request-time; done here instead so the
+    // positions feed is served from the same DB snapshot as the leaderboard rather than a
+    // separate live Vercel-side fetch). Skips zero-size rows the same way lib/polymarket.ts did.
+    const tradedPositions: Position[] = positions
+      .map((row: any): Position | null => {
+        const size = num(row.size ?? row.shares, NaN);
+        if (!Number.isFinite(size) || size === 0) return null;
+        const avgPrice = num(row.avgPrice ?? row.averagePrice);
+        const curPrice = num(row.curPrice ?? row.currentPrice ?? avgPrice);
+        return {
+          trader: base.name,
+          wallet: base.wallet,
+          venue: "polymarket",
+          conditionId: str(row.conditionId ?? row.asset ?? row.market),
+          marketTitle: str(row.title ?? row.question),
+          side: str(row.outcome, "YES").toUpperCase() === "NO" ? "NO" : "YES",
+          size,
+          avgPrice,
+          curPrice,
+          currentValue: num(row.currentValue, size * curPrice),
+          unrealizedPnl: num(row.cashPnl ?? row.pnl, size * (curPrice - avgPrice)),
+          traderTier: smartScore.tier,
+          traderScore: smartScore.score,
+        };
+      })
+      .filter((p: Position | null): p is Position => p !== null);
+
+    return { trader: t, positions: tradedPositions };
   });
 
-  return traders;
+  return {
+    traders: perTrader.map((r) => r.trader),
+    positions: perTrader.flatMap((r) => r.positions),
+  };
 }

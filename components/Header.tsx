@@ -53,6 +53,9 @@ export function Header({
   activeVenue,
   onVenueSelect,
   hasError = false,
+  stale = false,
+  isRefreshing = false,
+  onRefresh,
 }: {
   updatedAt: string | null;
   totalPnl: number | null;
@@ -60,6 +63,12 @@ export function Header({
   activeVenue?: Venue | "all";
   onVenueSelect?: (v: Venue | "all") => void;
   hasError?: boolean;
+  /** Backend flagged its served snapshot as stale (ingest hasn't refreshed recently). */
+  stale?: boolean;
+  /** A poll is currently in flight — drives the pulsing live-indicator dot. */
+  isRefreshing?: boolean;
+  /** Manual refresh trigger, wired to useLiveData's `refresh()`. Omit to hide the button. */
+  onRefresh?: () => void;
 }) {
   const totalLabel = activeVenue && activeVenue !== "all" ? `Total P&L (${VENUE_LABELS[activeVenue] ?? activeVenue})` : "Total P&L (all platforms)";
 
@@ -86,8 +95,34 @@ export function Header({
           </div>
         </div>
         <div className="h-8 w-px bg-border-soft" />
-        <div className="text-xs text-text-faint">
-          {updatedAt ? `Updated ${timeAgo(updatedAt)}` : hasError ? "Unavailable" : "Loading…"}
+        <div className="flex items-center gap-2 text-xs text-text-faint">
+          <span
+            className="inline-block h-1.5 w-1.5 shrink-0 rounded-full"
+            style={{
+              backgroundColor: hasError ? "var(--red)" : stale ? "var(--orange)" : "var(--green)",
+              animation: isRefreshing ? "pulse 1.2s ease-in-out infinite" : undefined,
+            }}
+            title={isRefreshing ? "Refreshing…" : stale ? "Stale" : "Live"}
+          />
+          <span>{updatedAt ? `Updated ${timeAgo(updatedAt)}` : hasError ? "Unavailable" : "Loading…"}</span>
+          {stale && (
+            <span
+              className="rounded-full border px-1.5 py-0.5 font-medium"
+              style={{ borderColor: "var(--orange)", color: "var(--orange)" }}
+            >
+              Stale
+            </span>
+          )}
+          {onRefresh && (
+            <button
+              onClick={onRefresh}
+              disabled={isRefreshing}
+              className="rounded-md px-1.5 py-0.5 text-text-faint transition-colors hover:bg-row-hover hover:text-text disabled:opacity-50"
+              title="Refresh now"
+            >
+              {isRefreshing ? "Refreshing…" : "Refresh"}
+            </button>
+          )}
         </div>
 
         {pnlByVenue && pnlByVenue.size > 0 && (

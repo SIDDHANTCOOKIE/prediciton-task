@@ -68,7 +68,10 @@ curl -X POST "http://localhost:8080/ingest?token=<INGEST_TOKEN>"
 - **Backend → Render**: see [`server/README.md`](server/README.md) for the full guide, including
   the free-tier keep-alive setup (an external pinger, not internal cron, is what actually keeps
   data refreshing — read that section before deploying).
-- **Frontend → Vercel**: set `NEXT_PUBLIC_BACKEND_URL` to the deployed Render URL.
+- **Frontend → Vercel**: set `NEXT_PUBLIC_BACKEND_URL` (Production **and** Preview) to the
+  deployed Render URL, then trigger a redeploy — env var changes don't apply to a build that's
+  already running. Without it, `app/api/leaderboard` and `app/api/positions` fall back to
+  `http://localhost:8080` and every request 502s in production.
 - **Database**: Neon (free Postgres) or Render Postgres.
 
 ## Data sources & honesty guarantees

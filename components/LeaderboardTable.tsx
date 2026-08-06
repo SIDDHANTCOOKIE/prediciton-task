@@ -8,7 +8,7 @@ import { ScoreBadge, TierChip } from "@/components/ScoreBadge";
 import { VenueBadges } from "@/components/VenueBadge";
 import { Sparkline } from "@/components/Sparkline";
 import { ScoreBreakdownPanel } from "@/components/ScoreBreakdownPanel";
-import { formatUsd, formatPercent, shortAddress } from "@/lib/format";
+import { formatUsd, formatPercent, shortAddress, traderProfileUrl } from "@/lib/format";
 
 const COLUMNS: { key: SortKey | "rank" | "trader" | "venue" | "select"; label: string; sortable: boolean; className?: string }[] = [
   { key: "select", label: "", sortable: false, className: "w-8" },
@@ -163,25 +163,42 @@ export function LeaderboardTable({
                     </span>
                   </td>
                   <td className="px-3 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <Avatar name={t.name} pfp={t.pfp} />
-                      <div className="flex min-w-0 flex-col">
-                        <span className="flex items-center gap-1.5 truncate font-medium text-text">
-                          {t.name}
-                          {t.affiliated && (
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" className="shrink-0">
-                              <path d="M20 6 9 17l-5-5" />
-                            </svg>
-                          )}
-                          {t.wallet_count > 1 && (
-                            <span className="rounded bg-border-soft px-1 text-[9px] font-semibold text-text-faint">{t.wallet_count}W</span>
-                          )}
-                        </span>
-                        <span className="truncate font-mono text-[11px] text-text-faint">
-                          {t.wallet ? shortAddress(t.wallet) : t.kalshi_username ? `@${t.kalshi_username}` : t.join_date}
-                        </span>
-                      </div>
-                    </div>
+                    {(() => {
+                      const profileUrl = traderProfileUrl(t);
+                      const Wrapper = profileUrl ? "a" : "div";
+                      return (
+                        <Wrapper
+                          {...(profileUrl
+                            ? { href: profileUrl, target: "_blank", rel: "noopener noreferrer", title: `Open ${t.name}'s profile` }
+                            : {})}
+                          onClick={(e: React.MouseEvent) => e.stopPropagation()}
+                          className={clsx("flex items-center gap-2.5", profileUrl && "group/profile cursor-pointer")}
+                        >
+                          <Avatar name={t.name} pfp={t.pfp} />
+                          <div className="flex min-w-0 flex-col">
+                            <span
+                              className={clsx(
+                                "flex items-center gap-1.5 truncate font-medium text-text",
+                                profileUrl && "group-hover/profile:underline"
+                              )}
+                            >
+                              {t.name}
+                              {t.affiliated && (
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5" className="shrink-0">
+                                  <path d="M20 6 9 17l-5-5" />
+                                </svg>
+                              )}
+                              {t.wallet_count > 1 && (
+                                <span className="rounded bg-border-soft px-1 text-[9px] font-semibold text-text-faint">{t.wallet_count}W</span>
+                              )}
+                            </span>
+                            <span className="truncate font-mono text-[11px] text-text-faint">
+                              {t.wallet ? shortAddress(t.wallet) : t.kalshi_username ? `@${t.kalshi_username}` : t.join_date}
+                            </span>
+                          </div>
+                        </Wrapper>
+                      );
+                    })()}
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">

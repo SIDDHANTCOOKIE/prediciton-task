@@ -1,18 +1,21 @@
 import { sql } from "./client";
 import { Trader, Venue } from "../../../lib/types";
 
-export async function insertSnapshot(venue: Venue, payload: Trader[]) {
+/** `venue` doubles as a generic snapshot key — besides the real Venue values ("polymarket",
+ *  "kalshi"), "polymarket_positions" reuses this same table for the positions feed rather than
+ *  adding a parallel table, hence the plain-string signature instead of `Venue`. */
+export async function insertSnapshot<T = Trader>(venue: Venue | string, payload: T[]) {
   if (!process.env.DATABASE_URL) return; // bypass if no DB
-  
+
   await sql`
     INSERT INTO snapshots (venue, payload)
-    VALUES (${venue}, ${sql.json(payload)})
+    VALUES (${venue}, ${sql.json(payload as unknown as import("postgres").JSONValue)})
   `;
 }
 
-export async function getLatestSnapshot(venue: Venue): Promise<{ created_at: Date; payload: Trader[] } | null> {
+export async function getLatestSnapshot<T = Trader>(venue: Venue | string): Promise<{ created_at: Date; payload: T[] } | null> {
   if (!process.env.DATABASE_URL) return null;
-  
+
   const result = await sql`
     SELECT created_at, payload
     FROM snapshots
@@ -20,12 +23,12 @@ export async function getLatestSnapshot(venue: Venue): Promise<{ created_at: Dat
     ORDER BY created_at DESC
     LIMIT 1
   `;
-  
+
   if (result.length === 0) return null;
-  
+
   return {
     created_at: result[0].created_at,
-    payload: result[0].payload as Trader[],
+    payload: result[0].payload as T[],
   };
 }
 

@@ -43,3 +43,16 @@ export function shortAddress(addr: string): string {
   if (addr.length < 12) return addr;
   return `${addr.slice(0, 6)}…${addr.slice(-4)}`;
 }
+
+/** External profile URL on the trader's origin platform, when resolvable — used to make trader
+ *  rows clickable through to their real Polymarket/Kalshi profile.
+ *  Polymarket's `polymarket.com/profile/{wallet}` scheme is well-established/public.
+ *  Kalshi has no documented public profile page (same "no official API" situation as its
+ *  leaderboard — see server/README.md); `/social/profile/{nickname}` mirrors the ingester's own
+ *  API path (server/src/ingest/kalshi.ts's `/v1/social/profile?nickname=`) as the closest
+ *  reasonable guess at the real page, not a confirmed URL — verify before treating it as certain. */
+export function traderProfileUrl(t: { wallet?: string | null; kalshi_username?: string | null }): string | null {
+  if (t.wallet) return `https://polymarket.com/profile/${t.wallet}`;
+  if (t.kalshi_username) return `https://kalshi.com/social/profile/${t.kalshi_username}`;
+  return null;
+}

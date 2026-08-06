@@ -2,7 +2,7 @@ import clsx from "clsx";
 import type { Position } from "@/lib/types";
 import { TierChip } from "@/components/ScoreBadge";
 import { VenueBadges } from "@/components/VenueBadge";
-import { formatUsd } from "@/lib/format";
+import { formatUsd, traderProfileUrl } from "@/lib/format";
 
 export function PositionsTable({ positions }: { positions: Position[] }) {
   if (positions.length === 0) {
@@ -32,10 +32,27 @@ export function PositionsTable({ positions }: { positions: Position[] }) {
           {positions.map((p, i) => (
             <tr key={`${p.wallet}-${p.conditionId}-${i}`} className="border-b border-border-soft transition-colors hover:bg-row-hover">
               <td className="px-3 py-2.5">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium text-text">{p.trader}</span>
-                  {p.traderTier && <TierChip tier={p.traderTier} />}
-                </div>
+                {(() => {
+                  const profileUrl = traderProfileUrl(p);
+                  return (
+                    <div className="flex items-center gap-2">
+                      {profileUrl ? (
+                        <a
+                          href={profileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={`Open ${p.trader}'s profile`}
+                          className="font-medium text-text hover:underline"
+                        >
+                          {p.trader}
+                        </a>
+                      ) : (
+                        <span className="font-medium text-text">{p.trader}</span>
+                      )}
+                      {p.traderTier && <TierChip tier={p.traderTier} />}
+                    </div>
+                  );
+                })()}
               </td>
               <td className="max-w-[320px] truncate px-3 py-2.5 text-text-muted" title={p.marketTitle}>
                 {p.marketTitle || "—"}
