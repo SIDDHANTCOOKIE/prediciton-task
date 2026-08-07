@@ -26,32 +26,25 @@ export type Trader = {
     buys: number;
     sells: number;
   };
-  /** Real deposited capital, when the upstream can resolve it (e.g. via on-chain wallet transfers).
-   *  0 when unavailable (e.g. Kalshi traders with no linked wallet) — used as the capital-efficiency
-   *  denominator; traders with 0 are excluded from that sort rather than shown a fake ratio. */
-  deposits: number;
-  smart_score: SmartScore;
+  /** Null when the selected period has too little dated history to trust a variance-based score
+   *  (see lib/metrics.ts's MIN_DAYS_FOR_SCORE — structurally always true for "1D", since a single
+   *  day has no variance to measure). Every consumer must render a null score as "—", never as 0
+   *  or an omitted row — the trader is real, just unscoreable in this window. */
+  smart_score: SmartScore | null;
   /** Cumulative-equity points for the row sparkline, derived from real trade history. */
   equity_curve: number[];
   /** Score-based rank as of the previous live refresh; undefined until a second snapshot exists. */
   previousScoreRank?: number;
   /** Dominant Polymarket market category by traded volume, when resolvable. */
   dominantCategory?: string;
-  /** True if the reconstructed PnL matches the upstream leaderboard PnL. */
+  /** True if this row's P&L is the venue's own authoritative figure (which it always is now —
+   *  see server/src/ingest/polymarket.ts) rather than something reconstructed and reconciled
+   *  against it. Kept for schema/UI compatibility; no longer expected to ever be false. */
   isConfident?: boolean;
-  /** True when isConfident is false specifically because the venue's public API has a hard
-   *  ceiling on retrievable history (confirmed: Polymarket's /activity rejects any offset past
-   *  5000) — the trader's full lifetime record structurally can't be fetched, as opposed to some
-   *  other reconciliation failure. Distinguishes "this is a known platform limit" from "something
-   *  looks off" in the UI, since the former shouldn't read as alarming. */
+  /** Historical: true meant a reconciliation gap was specifically due to Polymarket's now-removed
+   *  /activity 5,000-event ceiling. No longer set by the ingester (nothing reconstructs history
+   *  from /activity anymore), kept only so old snapshot rows in the DB still deserialize cleanly. */
   historyTruncated?: boolean;
-  /** Dollar P&L within each period window (1D/1W/1M/YTD), derived from the same dated daily
-   *  series used for scoring — not fabricated (see server/src/score/reconstruct.ts's
-   *  computePeriodPnl). Missing for a period means "not computable for this trader" (e.g. every
-   *  Kalshi trader, whose ingester has no dated daily series at all), not zero — the Period
-   *  filter (lib/filtering.ts) excludes such traders from a non-ALL period rather than show a
-   *  fake number for them. */
-  periodPnl?: Partial<Record<Period, number>>;
 };
 
 /** Stable unique identity for a trader row. Display names alone aren't guaranteed unique
@@ -73,7 +66,10 @@ export type SortKey =
   | "winRate"
   | "pnl";
 
-export type Period = "1D" | "1W" | "1M" | "YTD" | "ALL";
+/** Matches Polymarket's own period leaderboard exactly (data-api.polymarket.com's
+ *  timePeriod=DAY|WEEK|MONTH|ALL) — no YTD tab, since Polymarket doesn't expose one and deriving
+ *  it ourselves is exactly the fabrication this type once had (see git history: periodPnl). */
+export type Period = "1D" | "1W" | "1M" | "ALL";
 
 export type Tier = "Elite" | "Great" | "Good" | "Average" | "Risky";
 
@@ -104,7 +100,6 @@ export type FilterState = {
   profitableOnly: boolean;
   minPnl: number;
   minVolume: number;
-  minCapital: number;
   minScore: number;
   minSharpe: number;
   minSortino: number;
@@ -129,19 +124,18 @@ export const DEFAULT_FILTERS: FilterState = {
   profitableOnly: true,
   minPnl: -Infinity,
   minVolume: 0,
-  minCapital: 0,
   minScore: 0,
   minSharpe: -Infinity,
   minSortino: -Infinity,
   minWinRate: 0,
   maxDrawdownPercent: 1,
   // Default OFF: Kalshi traders are hardcoded to dataPoints=0 (that ingester has no daily
-  // equity curve by design), and most Polymarket traders don't yet have 30+ reconstructed days
-  // (activity fetch isn't paginated to full history yet). With this on by default, it silently
-  // hid essentially the entire leaderboard (confirmed live: 68/70 traders, 100% of Kalshi) rather
-  // than just flagging the ones with too little history to trust a ratio from. The existing
-  // per-row thin-sample warning icon (LeaderboardTable) still signals this — opt-in hiding via
-  // the filter toggle, not silent exclusion by default.
+  // equity curve by design), and short periods (1D/1W) structurally have too few days for most
+  // Polymarket traders to clear MIN_DATA_POINTS_FOR_RATIO_SORT either. With this on by default,
+  // it silently hid most of the leaderboard rather than just flagging the ones with too little
+  // history to trust a ratio from. The existing per-row thin-sample warning icon
+  // (LeaderboardTable) still signals this — opt-in hiding via the filter toggle, not silent
+  // exclusion by default.
   hideThinSamples: false,
   hideLowConfidence: false,
   xLinkedOnly: false,

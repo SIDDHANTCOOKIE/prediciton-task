@@ -3,7 +3,8 @@
 import { Fragment, useState } from "react";
 import clsx from "clsx";
 import { traderKey, type Trader, type FilterState, type SortKey } from "@/lib/types";
-import { getSortOption, isEligibleForRatioSort } from "@/lib/sorting";
+import { getSortOption, isEligibleForRatioSort, hasUsableVolume } from "@/lib/sorting";
+import { MIN_DAYS_FOR_SCORE } from "@/lib/metrics";
 import { ScoreBadge, TierChip } from "@/components/ScoreBadge";
 import { VenueBadges } from "@/components/VenueBadge";
 import { Sparkline } from "@/components/Sparkline";
@@ -121,8 +122,8 @@ export function LeaderboardTable({
           {traders.map((t, idx) => {
             const key = traderKey(t);
             const isOpen = expanded === key;
-            const hasDeposits = t.deposits > 0;
-            const roc = hasDeposits ? t.stats.pnl / t.deposits : 0;
+            const hasVolume = hasUsableVolume(t);
+            const roc = hasVolume ? t.stats.pnl / (t.stats.buys + t.stats.sells) : 0;
             const thin = !isEligibleForRatioSort(t);
             const activeSort = getSortOption(filters.sortKey);
             return (
@@ -202,44 +203,41 @@ export function LeaderboardTable({
                   </td>
                   <td className="px-3 py-2.5">
                     <div className="flex items-center gap-2">
-                      <ScoreBadge score={t.smart_score.score} tier={t.smart_score.tier} size="sm" />
-                      {thin && (
-                        <span title={`Only ${t.smart_score.dataPoints} days tracked — excluded from ratio sorts by default`} className="text-text-faint">
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 8v5M12 16h.01" />
-                          </svg>
-                        </span>
-                      )}
-                      {t.isConfident === false && t.historyTruncated && (
+                      {t.smart_score ? (
+                        <>
+                          <ScoreBadge score={t.smart_score.score} tier={t.smart_score.tier} size="sm" />
+                          {thin && (
+                            <span title={`Only ${t.smart_score.dataPoints} days tracked — excluded from ratio sorts by default`} className="text-text-faint">
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 8v5M12 16h.01" />
+                              </svg>
+                            </span>
+                          )}
+                        </>
+                      ) : (
                         <span
-                          title="Score based on partial trading history — Polymarket's public API only exposes each trader's most recent ~5,000 events (a hard platform limit), not their full lifetime record. Not an error, just an upstream data limit."
-                          className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-text-faint"
+                          className="font-mono text-text-faint"
+                          title={`Not enough history in this window to compute a score — needs ${MIN_DAYS_FOR_SCORE}+ days.`}
                         >
-                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <circle cx="12" cy="12" r="10" />
-                            <path d="M12 16v-5M12 8h.01" strokeLinecap="round" />
-                          </svg>
-                        </span>
-                      )}
-                      {t.isConfident === false && !t.historyTruncated && (
-                        <span title="Low confidence: reconstructed history's P&L doesn't match the venue's own reported total" className="flex h-3.5 w-3.5 items-center justify-center rounded-full bg-orange-soft text-[10px] font-bold text-orange">
-                          !
+                          —
                         </span>
                       )}
                     </div>
                   </td>
                   <td
                     className="px-3 py-2.5 font-mono tabular-nums"
-                    style={hasDeposits ? { color: roc >= 0 ? "var(--green)" : "var(--red)" } : { color: "var(--text-faint)" }}
-                    title={hasDeposits ? undefined : "No resolvable deposit data for this trader"}
+                    style={hasVolume ? { color: roc >= 0 ? "var(--green)" : "var(--red)" } : { color: "var(--text-faint)" }}
+                    title={hasVolume ? undefined : "No trading volume recorded for this trader"}
                   >
-                    {hasDeposits ? `${roc >= 0 ? "+" : ""}${(roc * 100).toFixed(0)}%` : "—"}
+                    {hasVolume ? `${roc >= 0 ? "+" : ""}${(roc * 100).toFixed(0)}%` : "—"}
                   </td>
                   <td className="px-3 py-2.5 font-mono tabular-nums" style={{ color: t.stats.pnl >= 0 ? "var(--green)" : "var(--red)" }}>
                     {formatUsd(t.stats.pnl, { signed: true, compact: true })}
                   </td>
-                  <td className="px-3 py-2.5 font-mono tabular-nums text-text-muted">{formatPercent(t.smart_score.winRate, 0)}</td>
+                  <td className="px-3 py-2.5 font-mono tabular-nums text-text-muted">
+                    {t.smart_score ? formatPercent(t.smart_score.winRate, 0) : "—"}
+                  </td>
                   <td className="px-3 py-2.5">
                     <VenueBadges venue={t.platform} />
                   </td>
@@ -247,16 +245,24 @@ export function LeaderboardTable({
                 {isOpen && (
                   <tr className="border-b border-border-soft bg-bg">
                     <td colSpan={COLUMNS.length} className="p-0">
-                      <div className="animate-fade-in-up flex items-center justify-between px-4 pt-3">
-                        <div className="flex items-center gap-3">
-                          <TierChip tier={t.smart_score.tier} />
-                          <Sparkline data={t.equity_curve} width={120} height={32} />
+                      {t.smart_score ? (
+                        <>
+                          <div className="animate-fade-in-up flex items-center justify-between px-4 pt-3">
+                            <div className="flex items-center gap-3">
+                              <TierChip tier={t.smart_score.tier} />
+                              <Sparkline data={t.equity_curve} width={120} height={32} />
+                            </div>
+                            <span className="font-mono text-[11px] text-text-faint">
+                              Active sort: {activeSort.label} — {activeSort.format(t)}
+                            </span>
+                          </div>
+                          <ScoreBreakdownPanel smartScore={t.smart_score} />
+                        </>
+                      ) : (
+                        <div className="animate-fade-in-up px-4 py-6 text-center text-sm text-text-faint">
+                          Not enough trading history in this window to compute a risk-adjusted score (needs {MIN_DAYS_FOR_SCORE}+ days). P&L above is still real.
                         </div>
-                        <span className="font-mono text-[11px] text-text-faint">
-                          Active sort: {activeSort.label} — {activeSort.format(t)}
-                        </span>
-                      </div>
-                      <ScoreBreakdownPanel smartScore={t.smart_score} />
+                      )}
                     </td>
                   </tr>
                 )}

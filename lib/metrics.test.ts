@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { weightedScore, tierForScore, computeSmartScore, type DailyReturn } from "./metrics";
+import { weightedScore, tierForScore, computeSmartScore, MIN_DAYS_FOR_SCORE, type DailyReturn } from "./metrics";
 
 describe("weightedScore", () => {
   it("reproduces haon's real published score (66.9) from the live scoreBreakdown", () => {
@@ -50,27 +50,39 @@ describe("computeSmartScore end-to-end", () => {
     const erratic = makeSeries(
       Array.from({ length: 60 }, (_, i) => (i % 2 === 0 ? 0.25 : -0.23))
     );
-    const steadyScore = computeSmartScore(steady, "2026-07-14T00:00:00Z").score;
-    const erraticScore = computeSmartScore(erratic, "2026-07-14T00:00:00Z").score;
+    const steadyScore = computeSmartScore(steady, "2026-07-14T00:00:00Z")!.score;
+    const erraticScore = computeSmartScore(erratic, "2026-07-14T00:00:00Z")!.score;
     expect(steadyScore).toBeGreaterThan(erraticScore);
   });
 
   it("dataPoints reflects the series length (used for the sample-size guard rail)", () => {
     const series = makeSeries(Array.from({ length: 10 }, () => 0.01));
-    expect(computeSmartScore(series, "2026-07-14T00:00:00Z").dataPoints).toBe(10);
+    expect(computeSmartScore(series, "2026-07-14T00:00:00Z")!.dataPoints).toBe(10);
   });
 
   it("handles an all-losing series without NaN/Infinity", () => {
     const series = makeSeries(Array.from({ length: 20 }, () => -0.02));
-    const s = computeSmartScore(series, "2026-07-14T00:00:00Z");
+    const s = computeSmartScore(series, "2026-07-14T00:00:00Z")!;
     expect(Number.isFinite(s.score)).toBe(true);
     expect(Number.isFinite(s.sortinoRatio)).toBe(true);
     expect(s.winRate).toBe(0);
   });
 
-  it("handles an empty series without throwing", () => {
-    const s = computeSmartScore([], "2026-07-14T00:00:00Z");
-    expect(s.dataPoints).toBe(0);
-    expect(Number.isFinite(s.score)).toBe(true);
+  it("returns null for an empty series rather than a fabricated score — no variance to measure", () => {
+    expect(computeSmartScore([], "2026-07-14T00:00:00Z")).toBeNull();
+  });
+
+  it("returns null below MIN_DAYS_FOR_SCORE, including the realistic 1-day case", () => {
+    const oneDay = makeSeries([0.05]);
+    expect(oneDay).toHaveLength(1);
+    expect(computeSmartScore(oneDay, "2026-07-14T00:00:00Z")).toBeNull();
+
+    const justBelow = makeSeries(Array.from({ length: MIN_DAYS_FOR_SCORE - 1 }, () => 0.01));
+    expect(computeSmartScore(justBelow, "2026-07-14T00:00:00Z")).toBeNull();
+  });
+
+  it("computes a real score at exactly MIN_DAYS_FOR_SCORE days", () => {
+    const atThreshold = makeSeries(Array.from({ length: MIN_DAYS_FOR_SCORE }, () => 0.01));
+    expect(computeSmartScore(atThreshold, "2026-07-14T00:00:00Z")).not.toBeNull();
   });
 });

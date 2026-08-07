@@ -8,7 +8,7 @@ import { VENUE_OPTIONS } from "@/components/VenueBadge";
 import { Dropdown } from "@/components/Dropdown";
 import { formatUsd } from "@/lib/format";
 
-const PERIODS: Period[] = ["1D", "1W", "1M", "YTD", "ALL"];
+const PERIODS: Period[] = ["1D", "1W", "1M", "ALL"];
 const TIERS: Tier[] = ["Elite", "Great", "Good", "Average", "Risky"];
 // Thresholds sized to the real observed P&L distribution (live check: min ~$79k, p25 ~$383k,
 // median ~$3.7M, p75 ~$6.1M, max ~$22.5M) — the previous $5+/$1k+/$10k+ steps were leftover from
@@ -203,11 +203,25 @@ export function FilterRail({
             title={
               filters.period === "ALL"
                 ? undefined
-                : "P&L for this window, from each trader's real reconstructed daily history. Traders with no data for this window (e.g. all Kalshi accounts, which have no dated daily history) are hidden rather than shown a stale all-time number."
+                : "Polymarket's own period leaderboard for this window — who appears, P&L, and volume all come straight from their real per-period board, not derived. Kalshi has no per-period data and only appears under ALL. Score needs 7+ days of history in the window; shorter windows show “—”."
             }
           >
             {PERIODS.map((p) => (
-              <Pill key={p} active={filters.period === p} onClick={() => set("period", p)}>
+              <Pill
+                key={p}
+                active={filters.period === p}
+                onClick={() => {
+                  // 1D is structurally always 1 data point (no variance to score), so every score
+                  // there is "—" — sorting by a column of dashes is confusing, so default to P&L
+                  // (always real) instead when a user picks it while sorted by score.
+                  const next = { ...filters, period: p };
+                  if (p === "1D" && filters.sortKey === "score") {
+                    next.sortKey = "pnl";
+                    next.sortDir = "desc";
+                  }
+                  onChange(next);
+                }}
+              >
                 {p}
               </Pill>
             ))}
@@ -382,20 +396,6 @@ export function FilterRail({
                 step={100_000}
                 value={filters.minVolume}
                 onChange={(e) => set("minVolume", Number(e.target.value))}
-                className="accent-[var(--accent)]"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5">
-              <span className="flex justify-between text-xs font-medium text-text-muted">
-                Min capital <span className="font-mono text-text">{formatUsd(filters.minCapital, { compact: true })}</span>
-              </span>
-              <input
-                type="range"
-                min={0}
-                max={5_000_000}
-                step={100_000}
-                value={filters.minCapital}
-                onChange={(e) => set("minCapital", Number(e.target.value))}
                 className="accent-[var(--accent)]"
               />
             </label>

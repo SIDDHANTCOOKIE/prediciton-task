@@ -155,7 +155,6 @@ export async function ingestKalshi(): Promise<Trader[]> {
           buys: metrics.volume, // dollar volume proxy, matches lib/filtering.ts's minVolume treating buys+sells as volume
           sells: 0,
         },
-        deposits: 0,
         smart_score: {
           tier: "Average",
           score: 0,

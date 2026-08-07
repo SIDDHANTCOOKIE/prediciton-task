@@ -16,16 +16,19 @@ import { CompareDrawer } from "@/components/CompareDrawer";
 type ApiResponse = { updatedAt: string | null; count: number; traders: Trader[]; stale?: boolean; error?: string };
 
 export default function Home() {
-  const { data, error, isRefreshing, refresh } = useLiveData<ApiResponse>("/api/leaderboard");
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  // The URL itself carries the period — the backend serves a genuinely different, real snapshot
+  // per period (server/src/routes/leaderboard.ts), not a client-side filter over one fixed
+  // all-time fetch. useLiveData refetches whenever its url argument changes, so switching a
+  // Period pill triggers a real request.
+  const { data, error, isRefreshing, refresh } = useLiveData<ApiResponse>(`/api/leaderboard?period=${filters.period}`);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
 
   const result = useMemo(() => (data ? applyFiltersAndSort(data.traders, filters) : []), [data, filters]);
 
-  // This upstream doesn't expose a daily equity series, so a "today" delta isn't
-  // computable — show the real combined all-time P&L instead of a fabricated daily
-  // figure. Sums the currently FILTERED set, so it responds to the venue filter etc.
+  // Sums the currently FILTERED set's real P&L for the selected period (from Polymarket's own
+  // period leaderboard, not derived) — responds to both the venue filter and the Period pills.
   const totalPnl = useMemo(() => {
     if (!data) return null;
     return result.reduce((sum, t) => sum + t.stats.pnl, 0);

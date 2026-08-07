@@ -43,7 +43,11 @@ export async function upsertTraders(venue: Venue, traders: Trader[]) {
     x_username: t.twitter || null,
     pnl: t.stats.pnl,
     volume: t.stats.buys + t.stats.sells,
-    deposits: t.deposits,
+    // Trader no longer carries a `deposits` field (Efficiency is P&L÷Volume now, not P&L÷Deposits
+    // — see lib/sorting.ts). This `traders` table is write-only (nothing reads it back; the
+    // read path is entirely the `snapshots` JSONB payload), so a schema migration to drop the
+    // column isn't worth doing just to stop writing a literal 0 into it.
+    deposits: 0,
     smart_score: sql.json(t.smart_score),
     updated_at: new Date()
   }));

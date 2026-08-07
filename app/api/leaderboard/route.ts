@@ -6,10 +6,12 @@ import { assignPercentiles } from "@/lib/metrics";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const period = searchParams.get("period") || "ALL";
     const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8080";
-    const res = await fetch(`${backendUrl}/api/leaderboard`, {
+    const res = await fetch(`${backendUrl}/api/leaderboard?period=${encodeURIComponent(period)}`, {
       cache: "no-store",
     });
 

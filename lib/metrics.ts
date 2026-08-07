@@ -147,6 +147,12 @@ function longestStreak(returns: number[], positive: boolean): number {
 
 const TRADING_DAYS_PER_YEAR = 365; // prediction markets trade every day, incl. weekends
 
+/** Below this many days, variance-based metrics (Sharpe/Sortino/drawdown/R²) are statistically
+ *  meaningless — a 1-day "series" has no variance to measure at all. computeSmartScore returns
+ *  null rather than a number that looks precise but isn't, so a period like 1D (which is
+ *  structurally always 0-1 data points) shows an honest "—" instead of a fabricated score. */
+export const MIN_DAYS_FOR_SCORE = 7;
+
 /** Normalize raw metrics into 0-100 sub-scores. See file header for provenance notes. */
 function deriveScoreBreakdown(input: {
   rSquared: number;
@@ -188,8 +194,12 @@ export function tierForScore(score: number): SmartScore["tier"] {
   return "Risky";
 }
 
-/** Full pipeline: daily return series -> raw metrics -> breakdown -> weighted Score. */
-export function computeSmartScore(series: DailyReturn[], calculatedAt: string): SmartScore {
+/** Full pipeline: daily return series -> raw metrics -> breakdown -> weighted Score. Returns null
+ *  when there's too little history to trust a variance-based metric (see MIN_DAYS_FOR_SCORE) —
+ *  callers must handle a null score (render "—"), not treat it as 0/absent-but-computed. */
+export function computeSmartScore(series: DailyReturn[], calculatedAt: string): SmartScore | null {
+  if (series.length < MIN_DAYS_FOR_SCORE) return null;
+
   const returns = series.map((d) => d.returnPct);
   const n = returns.length;
   const avgDailyReturn = mean(returns);
@@ -257,19 +267,27 @@ export function computeSmartScore(series: DailyReturn[], calculatedAt: string): 
   };
 }
 
-/** Assigns 1-100 percentile rank by score across a cohort (in place, mutates copies). */
-export function assignPercentiles<T extends { smart_score: SmartScore }>(traders: T[]): T[] {
-  const sorted = [...traders].sort((a, b) => a.smart_score.score - b.smart_score.score);
-  const n = sorted.length;
+/** Assigns 1-100 percentile rank by score across a cohort (in place, mutates copies). Traders
+ *  with a null score (too little history in the selected period — see MIN_DAYS_FOR_SCORE) are
+ *  left untouched rather than given a fabricated percentile. */
+export function assignPercentiles<T extends { smart_score: SmartScore | null }>(traders: T[]): T[] {
+  const scored = traders.filter((t): t is T & { smart_score: SmartScore } => t.smart_score !== null);
+  const n = scored.length;
+  if (n === 0) return traders;
+
+  const sorted = [...scored].sort((a, b) => a.smart_score.score - b.smart_score.score);
   const scoreToPercentile = new Map<string, number>();
   sorted.forEach((t, i) => {
     scoreToPercentile.set(t.smart_score.calculatedAt + t.smart_score.score, Math.round(((i + 1) / n) * 100));
   });
-  return traders.map((t) => ({
-    ...t,
-    smart_score: {
-      ...t.smart_score,
-      percentile: scoreToPercentile.get(t.smart_score.calculatedAt + t.smart_score.score) ?? 0,
-    },
-  }));
+  return traders.map((t) => {
+    if (!t.smart_score) return t;
+    return {
+      ...t,
+      smart_score: {
+        ...t.smart_score,
+        percentile: scoreToPercentile.get(t.smart_score.calculatedAt + t.smart_score.score) ?? 0,
+      },
+    };
+  });
 }

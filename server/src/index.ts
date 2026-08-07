@@ -50,7 +50,7 @@ async function build() {
  */
 async function maybeBootIngest() {
   try {
-    const latest = await getLatestSnapshot("polymarket");
+    const latest = await getLatestSnapshot("polymarket:ALL");
     const age = latest ? Date.now() - latest.created_at.getTime() : Infinity;
     if (age > FRESHNESS_TTL_MS) {
       console.log("[boot] Latest snapshot is stale or missing — triggering background ingest");

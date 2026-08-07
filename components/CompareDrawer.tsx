@@ -35,9 +35,9 @@ export function CompareDrawer({ traders, onClose }: { traders: Trader[]; onClose
             <div key={t.name} className="flex flex-col gap-3 p-4">
               <div className="flex items-center justify-between">
                 <span className="font-semibold text-text">{t.name}</span>
-                <ScoreBadge score={t.smart_score.score} tier={t.smart_score.tier} />
+                {t.smart_score && <ScoreBadge score={t.smart_score.score} tier={t.smart_score.tier} />}
               </div>
-              <TierChip tier={t.smart_score.tier} />
+              {t.smart_score && <TierChip tier={t.smart_score.tier} />}
               <Sparkline data={t.equity_curve} width={220} height={40} />
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <div>
@@ -46,10 +46,14 @@ export function CompareDrawer({ traders, onClose }: { traders: Trader[]; onClose
                 </div>
                 <div>
                   <div className="text-text-faint">Win rate</div>
-                  <div className="font-mono font-medium text-text">{formatPercent(t.smart_score.winRate, 0)}</div>
+                  <div className="font-mono font-medium text-text">{t.smart_score ? formatPercent(t.smart_score.winRate, 0) : "—"}</div>
                 </div>
               </div>
-              <ScoreBreakdownPanel smartScore={t.smart_score} />
+              {t.smart_score ? (
+                <ScoreBreakdownPanel smartScore={t.smart_score} />
+              ) : (
+                <div className="py-4 text-center text-xs text-text-faint">Not enough history in this window to compute a score.</div>
+              )}
             </div>
           ))}
         </div>
